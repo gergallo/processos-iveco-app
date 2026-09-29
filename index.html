@@ -23,43 +23,108 @@
 .bk-box h3{margin:0;font-size:18px}.bk-box button,.bk-box label.bt{font:inherit;font-weight:600;border-radius:8px;padding:10px 14px;border:1px solid #c8d0d6;background:#f4f6f8;cursor:pointer;text-align:center}
 .bk-box .pri{background:#13202A;color:#fff;border-color:#13202A}.bk-msg{min-height:1.2em;color:#5A6A77}
 .off-tag{background:#A8660A;color:#fff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600}
+#nv-login{position:fixed;inset:0;z-index:10050;background:linear-gradient(160deg,#13202A,#1F4E8C);display:grid;place-items:center;padding:16px}
+.nv-box{background:#fff;color:#13202A;border-radius:16px;padding:24px;width:min(380px,100%);display:flex;flex-direction:column;gap:12px;font:15px system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.nv-box img{border-radius:12px;align-self:center}.nv-box h2{margin:0;text-align:center;font-size:20px}.nv-box p{margin:0;text-align:center;color:#5A6A77}
+.nv-box label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:13px;color:#46555F}.nv-box input{font:inherit;font-size:16px;padding:10px;border:1px solid #c8d0d6;border-radius:8px}
+.nv-box button{font:inherit;font-weight:700;padding:12px;border-radius:10px;border:0;background:#13202A;color:#fff;cursor:pointer}.nv-msg{min-height:1.2em;color:#B8322A;text-align:center;font-size:13px}
+.nv-user{display:inline-flex;gap:8px;align-items:center;font-size:12.5px;margin-left:10px}.nv-user button{font:inherit;font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer}
+body.nv-leitura #b-import,body.nv-leitura #b-new,body.nv-leitura .ve-btn,body.nv-leitura .bi-ed,body.nv-leitura #a3-ed,body.nv-leitura #a3-cle,body.nv-leitura #a3-logo,body.nv-leitura label[for="a3-logo"]{display:none!important}
 </style>
 </head>
 <body>
 <div class="app-bar" id="app-bar" hidden><span id="app-txt">Instale o controle no celular para abrir como aplicativo.</span><button type="button" id="app-inst">Instalar app</button><button type="button" class="gh" id="app-x">Agora não</button></div>
+<script src="config.js"></script>
+<script src="supabase.js"></script>
 <script>
-/* ===== Modo aplicativo: substitui os recursos do Claude por equivalentes locais =====
-   - Base de dados: guardada neste aparelho (IndexedDB), com a mesma interface usada pelo controle
-   - Downloads: salva o arquivo direto no aparelho (ou abre "Compartilhar" no iPhone)
-   - Leitura de imagem: indisponível fora do Claude (cole o texto)                        */
+/* ===== Modo aplicativo: substitui os recursos do Claude por equivalentes próprios =====
+   Com config.js preenchido (Supabase): base ÚNICA na nuvem, login por e-mail e senha,
+   atualização em tempo real para todos e cópia local para abrir sem internet.
+   Sem config.js: base apenas neste aparelho (IndexedDB).                              */
 (function(){
+  const CFG=window.CONFIG_NUVEM||{}, NUVEM=!!(CFG.url&&CFG.chave&&window.supabase&&!/COLE_AQUI/.test(CFG.url+CFG.chave));
   const DBN="controle-iveco", ST="docs";
-  let idb=null, mem=new Map(), pronto=null; const colL=new Map(), docL=new Map();
-  const abrir=()=>new Promise((ok,er)=>{ const r=indexedDB.open(DBN,1); r.onupgradeneeded=()=>r.result.createObjectStore(ST); r.onsuccess=()=>ok(r.result); r.onerror=()=>er(r.error); });
-  const carregar=async()=>{ try{ idb=await abrir(); await new Promise((ok,er)=>{ const tx=idb.transaction(ST,"readonly"), c=tx.objectStore(ST).openCursor(); c.onsuccess=()=>{ const cu=c.result; if(cu){ mem.set(cu.key,cu.value); cu.continue(); } else ok(); }; c.onerror=()=>er(c.error); }); }
-    catch(e){ try{ const raw=localStorage.getItem(DBN); if(raw) Object.entries(JSON.parse(raw)).forEach(([k,v])=>mem.set(k,v)); }catch(_){} idb=null; } };
-  const gravar=(path,val)=>{ if(val===undefined) mem.delete(path); else mem.set(path,val);
-    if(idb){ return new Promise((ok,er)=>{ const tx=idb.transaction(ST,"readwrite"), s=tx.objectStore(ST); val===undefined?s.delete(path):s.put(val,path); tx.oncomplete=()=>ok(); tx.onerror=()=>er(Object.assign(new Error("Falha ao salvar"),{code:"storage"})); }); }
-    try{ const o={}; mem.forEach((v,k)=>o[k]=v); localStorage.setItem(DBN,JSON.stringify(o)); return Promise.resolve(); }catch(e){ return Promise.reject(Object.assign(new Error("Espaço cheio"),{code:"quota"})); } };
+  let idb=null, mem=new Map(), pronto=null, sb=null, eu=null, editor=!NUVEM, pend=[];
+  const colL=new Map(), docL=new Map();
   const clone=v=>v==null?v:JSON.parse(JSON.stringify(v));
-  const snapCol=col=>({docs:[...mem.entries()].filter(([k])=>k.startsWith(col+"/")&&k.indexOf("/",col.length+1)<0).map(([k,v])=>({id:k.slice(col.length+1),data:()=>clone(v),exists:true})),size:0});
+  const abrir=()=>new Promise((ok,er)=>{ const r=indexedDB.open(DBN,1); r.onupgradeneeded=()=>r.result.createObjectStore(ST); r.onsuccess=()=>ok(r.result); r.onerror=()=>er(r.error); });
+  const idbTodos=async()=>{ try{ idb=idb||await abrir(); await new Promise((ok,er)=>{ const c=idb.transaction(ST,"readonly").objectStore(ST).openCursor(); c.onsuccess=()=>{ const cu=c.result; if(cu){ mem.set(cu.key,cu.value); cu.continue(); } else ok(); }; c.onerror=()=>er(c.error); }); }catch(e){ idb=null; } };
+  const idbPut=(k,v)=>{ if(!idb) return Promise.resolve(); return new Promise(ok=>{ const tx=idb.transaction(ST,"readwrite"), s=tx.objectStore(ST); v===undefined?s.delete(k):s.put(v,k); tx.oncomplete=()=>ok(); tx.onerror=()=>ok(); }); };
+  const idbLimpa=()=>{ if(!idb) return Promise.resolve(); return new Promise(ok=>{ const tx=idb.transaction(ST,"readwrite"); tx.objectStore(ST).clear(); tx.oncomplete=()=>ok(); tx.onerror=()=>ok(); }); };
+  const snapCol=col=>({docs:[...mem.entries()].filter(([k])=>k.startsWith(col+"/")&&k.indexOf("/",col.length+1)<0).map(([k,v])=>({id:k.slice(col.length+1),data:()=>clone(v),exists:true}))});
   const snapDoc=p=>{ const v=mem.get(p); return {id:p.split("/").pop(),exists:v!==undefined,data:()=>clone(v)}; };
-  const avisa=path=>{ const col=path.slice(0,path.lastIndexOf("/")); (colL.get(col)||[]).forEach(f=>{ try{f(snapCol(col))}catch(e){console.error(e)} }); (docL.get(path)||[]).forEach(f=>{ try{f(snapDoc(path))}catch(e){console.error(e)} }); };
-  const add=(m,k,f)=>{ if(!m.has(k)) m.set(k,[]); m.get(k).push(f); return ()=>{ const a=m.get(k)||[]; const i=a.indexOf(f); if(i>=0) a.splice(i,1); }; };
-  const db={
-    collection:col=>({ onSnapshot:(f)=>{ const un=add(colL,col,f); pronto.then(()=>f(snapCol(col))); return un; }, get:async()=>{ await pronto; return snapCol(col); } }),
-    doc:path=>({ set:async v=>{ await pronto; await gravar(path,clone(v)); avisa(path); },
-      update:async v=>{ await pronto; const o=Object.assign({},mem.get(path)||{},clone(v)); await gravar(path,o); avisa(path); },
-      delete:async()=>{ await pronto; await gravar(path,undefined); avisa(path); },
-      get:async()=>{ await pronto; return snapDoc(path); },
-      onSnapshot:(f)=>{ const un=add(docL,path,f); pronto.then(()=>f(snapDoc(path))); return un; } })
+  const avisaCol=col=>(colL.get(col)||[]).forEach(f=>{ try{f(snapCol(col))}catch(e){console.error(e)} });
+  const avisa=path=>{ avisaCol(path.slice(0,path.lastIndexOf("/"))); (docL.get(path)||[]).forEach(f=>{ try{f(snapDoc(path))}catch(e){console.error(e)} }); };
+  const avisaTudo=()=>{ colL.forEach((_,c)=>avisaCol(c)); docL.forEach((fs,p)=>fs.forEach(f=>{ try{f(snapDoc(p))}catch(e){} })); };
+  const addL=(m,k,f)=>{ if(!m.has(k)) m.set(k,[]); m.get(k).push(f); return ()=>{ const a=m.get(k)||[]; const i=a.indexOf(f); if(i>=0) a.splice(i,1); }; };
+  let avisoT=null; const aviso=t=>{ let e=document.getElementById("nv-toast"); if(!e){ e=document.createElement("div"); e.id="nv-toast"; e.style.cssText="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10001;background:#13202A;color:#fff;padding:10px 16px;border-radius:10px;font:14px system-ui;box-shadow:0 8px 24px rgba(0,0,0,.3);max-width:90vw"; document.body.appendChild(e); } e.textContent=t; e.hidden=false; clearTimeout(avisoT); avisoT=setTimeout(()=>e.hidden=true,3500); };
+  const status=t=>{ const run=()=>{ const c=document.getElementById("conn-txt"); if(c) c.textContent=t; }; document.readyState==="loading"?document.addEventListener("DOMContentLoaded",run):run(); };
+
+  /* ---------- nuvem ---------- */
+  const PK="controle-iveco-pendentes";
+  try{ pend=JSON.parse(localStorage.getItem(PK)||"[]"); }catch(e){ pend=[]; }
+  const salvaPend=()=>{ try{ localStorage.setItem(PK,JSON.stringify(pend)); }catch(e){} };
+  const envia=async op=>{ if(op.del){ const {error}=await sb.from("docs").delete().eq("path",op.path); if(error) throw error; }
+    else { const {error}=await sb.from("docs").upsert({path:op.path,data:op.data,updated_at:new Date().toISOString(),updated_by:eu&&eu.email}); if(error) throw error; } };
+  let enviando=false;
+  const esvazia=async()=>{ if(!NUVEM||enviando||!pend.length||!navigator.onLine) return; enviando=true;
+    try{ while(pend.length){ await envia(pend[0]); pend.shift(); salvaPend(); } status("Nuvem · sincronizado"); }catch(e){ status(`Sem conexão · ${pend.length} alteração(ões) aguardando envio`); } enviando=false; };
+  const telaLogin=()=>new Promise(res=>{ const monta=()=>{ const ov=document.createElement("div"); ov.id="nv-login"; ov.innerHTML=`<form class="nv-box" autocomplete="on"><img src="icon-192.png" alt="" width="56" height="56"><h2>Controle Processos Iveco</h2><p>Entre com o e-mail e a senha que você recebeu.</p><label>E-mail<input type="email" name="email" autocomplete="username" required></label><label>Senha<input type="password" name="senha" autocomplete="current-password" required></label><button type="submit">Entrar</button><div class="nv-msg" role="status"></div></form>`;
+      document.body.appendChild(ov); const f=ov.querySelector("form"), m=ov.querySelector(".nv-msg"); f.email.focus();
+      f.onsubmit=async e=>{ e.preventDefault(); m.textContent="Entrando…"; const {data,error}=await sb.auth.signInWithPassword({email:f.email.value.trim(),password:f.senha.value});
+        if(error){ m.textContent=/Invalid login/i.test(error.message)?"E-mail ou senha incorretos.":"Não foi possível entrar: "+error.message; return; } ov.remove(); res(data.session); }; };
+    document.readyState==="loading"?document.addEventListener("DOMContentLoaded",monta):monta(); });
+  const baixaTudo=async()=>{ const novo=new Map(); for(let i=0;;i+=1000){ const {data,error}=await sb.from("docs").select("path,data").range(i,i+999); if(error) throw error; data.forEach(r=>novo.set(r.path,r.data)); if(data.length<1000) break; }
+    pend.forEach(op=>op.del?novo.delete(op.path):novo.set(op.path,op.data)); mem=novo; await idbLimpa(); for(const [k,v] of mem) await idbPut(k,v); };
+  const iniciaNuvem=async()=>{
+    sb=window.supabase.createClient(CFG.url,CFG.chave,{auth:{persistSession:true,autoRefreshToken:true}});
+    await idbTodos(); // mostra a última cópia enquanto conecta
+    let {data:{session}}=await sb.auth.getSession();
+    if(!session&&navigator.onLine) session=await telaLogin();
+    eu=session&&session.user;
+    if(!eu){ status("Sem internet · mostrando a última cópia salva"); editor=false; return; }
+    try{ const {data}=await sb.from("editores").select("email").eq("email",eu.email).maybeSingle(); editor=!!data; }catch(e){ editor=false; }
+    try{ await baixaTudo(); status(editor?"Nuvem · sincronizado":"Nuvem · somente leitura"); }catch(e){ status("Sem conexão · mostrando a última cópia salva"); }
+    sb.channel("docs-rt").on("postgres_changes",{event:"*",schema:"public",table:"docs"},p=>{
+      if(p.eventType==="DELETE"){ const k=p.old&&p.old.path; if(!k) return; mem.delete(k); idbPut(k,undefined); avisa(k); }
+      else { const r=p.new; if(!r||!r.path) return; mem.set(r.path,r.data); idbPut(r.path,r.data); avisa(r.path); } }).subscribe();
+    addEventListener("online",()=>{ esvazia(); baixaTudo().then(avisaTudo).catch(()=>{}); });
+    addEventListener("offline",()=>status("Sem internet · usando a cópia salva"));
+    setInterval(esvazia,30000); esvazia();
+    const marca=()=>{ document.body.classList.toggle("nv-leitura",!editor); const bar=document.createElement("div"); bar.className="nv-user"; bar.innerHTML=`<span>👤 ${eu.email}${editor?"":" · <b>somente leitura</b>"}</span><button type="button">Sair</button>`;
+      bar.querySelector("button").onclick=async()=>{ await sb.auth.signOut(); await idbLimpa(); try{ localStorage.removeItem(PK); }catch(e){} location.reload(); };
+      const c=document.querySelector(".conn"); (c&&c.parentNode||document.body).appendChild(bar); };
+    document.readyState==="loading"?document.addEventListener("DOMContentLoaded",marca):marca();
   };
-  pronto=carregar();
-  // backup de todos os dados deste aparelho
+  const iniciaLocal=async()=>{ await idbTodos(); if(!idb){ try{ const raw=localStorage.getItem(DBN); if(raw) Object.entries(JSON.parse(raw)).forEach(([k,v])=>mem.set(k,v)); }catch(e){} } };
+  pronto=(NUVEM?iniciaNuvem():iniciaLocal()).catch(e=>{ console.error(e); status("Erro ao carregar a base: "+e.message); });
+
+  const gravar=async(path,val)=>{
+    if(NUVEM&&!editor){ aviso("Seu acesso é somente leitura."); throw Object.assign(new Error("Somente leitura"),{code:"somente_leitura"}); }
+    if(val===undefined) mem.delete(path); else mem.set(path,val);
+    await idbPut(path,val); avisa(path);
+    if(!idb&&!NUVEM){ try{ const o={}; mem.forEach((v,k)=>o[k]=v); localStorage.setItem(DBN,JSON.stringify(o)); }catch(e){ throw Object.assign(new Error("Espaço cheio"),{code:"quota"}); } }
+    if(NUVEM){ pend=pend.filter(o=>o.path!==path); pend.push(val===undefined?{path,del:true}:{path,data:val}); salvaPend(); esvazia(); } };
+  const db={
+    collection:col=>({ onSnapshot:f=>{ const un=addL(colL,col,f); pronto.then(()=>f(snapCol(col))); return un; }, get:async()=>{ await pronto; return snapCol(col); } }),
+    doc:path=>({ set:async v=>{ await pronto; await gravar(path,clone(v)); },
+      update:async v=>{ await pronto; await gravar(path,Object.assign({},mem.get(path)||{},clone(v))); },
+      delete:async()=>{ await pronto; await gravar(path,undefined); },
+      get:async()=>{ await pronto; return snapDoc(path); },
+      onSnapshot:f=>{ const un=addL(docL,path,f); pronto.then(()=>f(snapDoc(path))); return un; } })
+  };
+  window.__modoNuvem=()=>({nuvem:NUVEM,editor,email:eu&&eu.email});
   window.__backupDados=async()=>{ await pronto; const o={}; mem.forEach((v,k)=>o[k]=v); return {app:"controle-iveco",versao:1,geradoEm:new Date().toISOString(),dados:o}; };
-  window.__restaurarDados=async(j)=>{ await pronto; if(!j||j.app!=="controle-iveco"||!j.dados) throw new Error("Arquivo de backup inválido"); const ks=[...mem.keys()]; for(const k of ks) await gravar(k,undefined); for(const [k,v] of Object.entries(j.dados)) await gravar(k,v); };
+  window.__restaurarDados=async j=>{ await pronto; if(!j||j.app!=="controle-iveco"||!j.dados) throw new Error("Arquivo de backup inválido");
+    if(NUVEM){ if(!editor) throw new Error("Seu acesso é somente leitura");
+      const linhas=Object.entries(j.dados).map(([path,data])=>({path,data,updated_at:new Date().toISOString(),updated_by:eu.email}));
+      for(let i=0;i<linhas.length;i+=200){ const {error}=await sb.from("docs").upsert(linhas.slice(i,i+200)); if(error) throw new Error(error.message); }
+      const novos=new Set(Object.keys(j.dados)), velhos=[...mem.keys()].filter(k=>!novos.has(k));
+      for(let i=0;i<velhos.length;i+=200){ const {error}=await sb.from("docs").delete().in("path",velhos.slice(i,i+200)); if(error) throw new Error(error.message); }
+      return; }
+    for(const k of [...mem.keys()]) await gravar(k,undefined); for(const [k,v] of Object.entries(j.dados)) await gravar(k,v); };
   const downloads={ save:async({filename,data,mimeType})=>{ const blob=data instanceof Blob?data:new Blob([data],{type:mimeType||"application/octet-stream"});
-      try{ const f=new File([blob],filename,{type:blob.type}); if(/iPhone|iPad|iPod/i.test(navigator.userAgent)&&navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:filename}); return; } }catch(e){ if(e&&e.name==="AbortError"){ throw Object.assign(new Error("cancelado"),{code:"declined"}); } }
+      try{ const f=new File([blob],filename,{type:blob.type}); if(/iPhone|iPad|iPod/i.test(navigator.userAgent)&&navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:filename}); return; } }catch(e){ if(e&&e.name==="AbortError") throw Object.assign(new Error("cancelado"),{code:"declined"}); }
       const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },4000); } };
   window.claude={ use:async n=>n==="db"?db:n==="downloads"?downloads:null };
 })();
@@ -3500,7 +3565,7 @@ render();
 (async()=>{
   const db = window.claude && window.claude.use ? await window.claude.use("db") : null;
   if(!db){ setConn(false,"Base indisponível nesta visualização"); return; }
-  state.db=db; setConn(true,"Salvo neste aparelho");
+  state.db=db; setConn(true,(window.__modoNuvem&&window.__modoNuvem().nuvem)?"Conectando à nuvem…":"Salvo neste aparelho");
   const sub=(col,key)=>db.collection(col).onSnapshot(s=>{ const m={}; s.docs.forEach(d=>{ const x=d.data(); if(x) m[d.id]=x; }); state[key]=m; render(); }, e=>setConn(false,"Conexão perdida ("+e.code+") · recarregue"));
   sub("prog","prog"); sub("follow","follow"); sub("envios","envios"); sub("alertas","alertas");
   let varreu=false;
@@ -3537,12 +3602,12 @@ try{ const t=localStorage.getItem("iveco.tab"); if(t){ const b=document.querySel
     const ov=document.createElement("div"); ov.className="bk-ov"; ov.innerHTML=`<div class="bk-box"><h3>Backup dos dados</h3>
       <p style="margin:0">Os dados (programação, follow, alertas, cidades) ficam guardados <b>neste aparelho</b>. Salve um backup para passar para outro computador ou celular, ou para não perder nada.</p>
       <button type="button" class="pri" id="bk-save">Salvar backup (.json)</button>
-      <label class="bt">Restaurar backup de um arquivo<input type="file" id="bk-file" accept=".json,application/json" hidden></label>
+      <label class="bt" id="bk-rest">Restaurar backup de um arquivo<input type="file" id="bk-file" accept=".json,application/json" hidden></label>
       <div class="bk-msg" id="bk-msg"></div><button type="button" id="bk-close">Fechar</button></div>`;
-    document.body.appendChild(ov); const msg=ov.querySelector("#bk-msg"); ov.onclick=e=>{ if(e.target===ov) ov.remove(); }; ov.querySelector("#bk-close").onclick=()=>ov.remove();
+    document.body.appendChild(ov); const msg=ov.querySelector("#bk-msg"); const md=window.__modoNuvem&&window.__modoNuvem(); if(md&&md.nuvem&&!md.editor) ov.querySelector("#bk-rest").hidden=true; if(md&&md.nuvem) ov.querySelector("p").innerHTML="Os dados ficam na <b>nuvem</b> e aparecem para todos os usuários. Use o backup para guardar uma cópia de segurança"+(md.editor?" ou para carregar os dados pela primeira vez (Restaurar).":"."); ov.onclick=e=>{ if(e.target===ov) ov.remove(); }; ov.querySelector("#bk-close").onclick=()=>ov.remove();
     ov.querySelector("#bk-save").onclick=async()=>{ const j=await window.__backupDados(); const d=new Date(), p=n=>String(n).padStart(2,"0"); const nome=`backup-controle-iveco-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.json`;
       const dl=await window.claude.use("downloads"); try{ await dl.save({filename:nome,data:JSON.stringify(j),mimeType:"application/json"}); msg.textContent="Backup salvo: "+nome+" ("+Object.keys(j.dados).length+" registros)."; }catch(e){ msg.textContent="Backup cancelado."; } };
-    ov.querySelector("#bk-file").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; if(!confirm("Restaurar este backup vai SUBSTITUIR os dados atuais deste aparelho. Continuar?")) return;
+    ov.querySelector("#bk-file").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; if(!confirm((window.__modoNuvem&&window.__modoNuvem().nuvem)?"Restaurar este backup vai SUBSTITUIR os dados da NUVEM para todos os usuários. Continuar?":"Restaurar este backup vai SUBSTITUIR os dados atuais deste aparelho. Continuar?")) return;
       try{ const j=JSON.parse(await f.text()); await window.__restaurarDados(j); msg.textContent="Backup restaurado. Recarregando…"; setTimeout(()=>location.reload(),800); }catch(err){ msg.textContent="Não foi possível restaurar: "+err.message; } };
   };
 })();

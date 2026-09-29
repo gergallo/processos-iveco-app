@@ -1,7 +1,7 @@
 // Controle Processos Iveco — permite abrir o app sem internet.
 // Ao publicar uma nova versão, aumente o número abaixo (v1 → v2) para os aparelhos atualizarem.
-const VERSAO = "controle-iveco-v2";
-const ARQUIVOS = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png",
+const VERSAO = "controle-iveco-v3";
+const ARQUIVOS = ["config.js", "supabase.js", "./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png",
   "three.min.js", "OrbitControls.js", "xlsx.full.min.js", "jspdf.umd.min.js"];
 
 self.addEventListener("install", (e) => {
@@ -20,6 +20,10 @@ self.addEventListener("fetch", (e) => {
   }
   if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") {   // fontes: guarda e reutiliza
     e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((r) => { const c = r.clone(); caches.open(VERSAO).then((ca) => ca.put(req, c)); return r; }).catch(() => hit)));
+    return;
+  }
+  if (url.origin === self.location.origin && url.pathname.endsWith("/config.js")) {   // configuração: sempre a mais nova
+    e.respondWith(fetch(req).then((r) => { const c = r.clone(); caches.open(VERSAO).then((ca) => ca.put(req, c)); return r; }).catch(() => caches.match(req)));
     return;
   }
   if (url.origin === self.location.origin) e.respondWith(caches.match(req).then((hit) => hit || fetch(req)));
