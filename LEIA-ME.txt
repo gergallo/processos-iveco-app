@@ -1,0 +1,61 @@
+CONTROLE PROCESSOS IVECO — PACOTE PARA PÁGINA WEB E APLICATIVO DE CELULAR
+=========================================================================
+
+ARQUIVOS DO PACOTE (envie TODOS para o GitHub, mantendo a pasta "vendor")
+  index.html              → o controle completo (Painel BI, Críticos, Necessidade × Follow,
+                            Linha do tempo, Rodovias, Indicadores, Painel 3D etc.)
+  manifest.webmanifest    → nome e ícone (faz aparecer "Instalar app")
+  sw.js                   → deixa o controle abrir sem internet
+  icon-192.png, icon-512.png, icon-maskable-512.png, apple-touch-icon.png → ícones
+  vendor/                 → bibliotecas usadas pelo controle (Excel, PDF e 3D).
+                            Ficam dentro do pacote para funcionar mesmo sem internet.
+
+PASSO A PASSO — GITHUB PAGES (grátis)
+ 1. Entre em github.com com a sua conta.
+ 2. "+" (canto superior direito) → "New repository".
+    Repository name: controle-iveco  ·  marque "Public"  ·  "Create repository".
+ 3. Clique em "uploading an existing file".
+ 4. Descompacte o .zip. Abra a pasta controle-iveco e ARRASTE para a área de upload
+    todo o conteúdo dela: os arquivos E a pasta "vendor".
+ 5. "Commit changes".
+ 6. "Settings" → "Pages" → Branch: "main", pasta "/ (root)" → "Save".
+ 7. Em 1 a 2 minutos aparece o endereço:
+       https://SEU-USUARIO.github.io/controle-iveco/
+    Essa é a página web. No computador, abra no Chrome ou Edge.
+
+INSTALAR COMO APLICATIVO
+  Computador (Chrome/Edge): ícone de instalar na barra de endereço, ou a faixa
+                            "Instalar app" no topo da página.
+  Android (Chrome): faixa "Instalar app" (ou menu ⋮ → "Instalar aplicativo").
+  iPhone (Safari):  Compartilhar → "Adicionar à Tela de Início".
+
+O QUE MUDA EM RELAÇÃO À VERSÃO DO CLAUDE — LEIA COM ATENÇÃO
+  1. DADOS FICAM NO APARELHO. Na versão do Claude, todos que abrem o link veem a
+     mesma base. Aqui, cada computador/celular tem a sua base. O que você importar
+     no computador NÃO aparece no celular sozinho.
+     → Para levar os dados de um aparelho para outro use o botão "Backup":
+       "Salvar backup (.json)" em um e "Restaurar backup" no outro.
+     → Para compartilhar a mesma base em tempo real entre várias pessoas é preciso
+       um banco de dados na nuvem (ex.: Firebase ou Supabase, que têm plano grátis).
+       Esse seria o próximo passo, se você quiser.
+  2. A BASE COMEÇA VAZIA. Importe a programação e o follow pelo botão
+     "Importar e-mail / planilha", como já faz hoje.
+  3. LEITURA DE IMAGEM (Consulta rápida com print) só funciona na versão do Claude.
+     Aqui, cole o texto com os números dos containers.
+  4. Exportar Excel, PDF e as imagens do resumo salvam direto no aparelho
+     (no iPhone abre a tela para salvar em Arquivos ou enviar).
+  5. O clima em tempo real funciona com internet (serviço Open-Meteo). Sem internet,
+     use "✎ Ajustar" na barra de clima.
+  6. Se limpar os dados do navegador ou desinstalar o app, a base daquele aparelho
+     se perde. Faça backup com frequência.
+
+PARA ATUALIZAR O CONTROLE DEPOIS
+  1. No repositório: "Add file" → "Upload files" e envie o index.html novo por cima.
+  2. Abra o sw.js (ícone de lápis) e troque  controle-iveco-v1  por  controle-iveco-v2
+     (v3, v4... a cada atualização). Os aparelhos pegam a versão nova na próxima
+     vez que abrirem com internet. Os dados salvos NÃO são apagados na atualização.
+
+ATENÇÃO À PRIVACIDADE
+  Repositório "Public" significa que qualquer pessoa com o link abre a página.
+  Os DADOS não vão para o GitHub (ficam só nos aparelhos), mas o controle em si
+  fica visível. Não envie planilhas, backups ou prints com dados para o repositório.
