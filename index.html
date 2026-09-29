@@ -64,10 +64,10 @@
   window.claude={ use:async n=>n==="db"?db:n==="downloads"?downloads:null };
 })();
 </script>
-<script src="vendor/three.min.js"></script>
-<script src="vendor/OrbitControls.js"></script>
+<script src="three.min.js"></script>
+<script src="OrbitControls.js"></script>
 
-<script src="vendor/xlsx.full.min.js"></script>
+<script src="xlsx.full.min.js"></script>
 <style>
 :root{
   --bg:#EEF2F4; --surface:#FFFFFF; --surface2:#F6F8FA; --ink:#13202A; --muted:#5A6A77; --line:#D6DEE4;
@@ -3366,7 +3366,7 @@ async function desenhaGerente(d,op){ op=Object.assign({mapa:true,det:true},op||{
 }
 let _jspdf=null;
 function carregaJsPdf(){ if(window.jspdf) return Promise.resolve(window.jspdf); if(_jspdf) return _jspdf;
-  _jspdf=new Promise((ok,er)=>{ const sc=document.createElement("script"); sc.src="vendor/jspdf.umd.min.js"; sc.onload=()=>window.jspdf?ok(window.jspdf):er(new Error("jsPDF indisponível")); sc.onerror=()=>{ _jspdf=null; er(new Error("não foi possível carregar o gerador de PDF")); }; document.head.appendChild(sc); });
+  _jspdf=new Promise((ok,er)=>{ const sc=document.createElement("script"); sc.src="jspdf.umd.min.js"; sc.onload=()=>window.jspdf?ok(window.jspdf):er(new Error("jsPDF indisponível")); sc.onerror=()=>{ _jspdf=null; er(new Error("não foi possível carregar o gerador de PDF")); }; document.head.appendChild(sc); });
   return _jspdf; }
 async function gerPdf(lista){
   const {jsPDF}=await carregaJsPdf(); let pdf=null; const MAX=1000; const todas=[];

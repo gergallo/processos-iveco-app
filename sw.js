@@ -1,8 +1,8 @@
 // Controle Processos Iveco — permite abrir o app sem internet.
 // Ao publicar uma nova versão, aumente o número abaixo (v1 → v2) para os aparelhos atualizarem.
-const VERSAO = "controle-iveco-v1";
+const VERSAO = "controle-iveco-v2";
 const ARQUIVOS = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png",
-  "vendor/three.min.js", "vendor/OrbitControls.js", "vendor/xlsx.full.min.js", "vendor/jspdf.umd.min.js"];
+  "three.min.js", "OrbitControls.js", "xlsx.full.min.js", "jspdf.umd.min.js"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSAO).then((c) => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));

@@ -1,14 +1,14 @@
 CONTROLE PROCESSOS IVECO — PACOTE PARA PÁGINA WEB E APLICATIVO DE CELULAR
 =========================================================================
 
-ARQUIVOS DO PACOTE (envie TODOS para o GitHub, mantendo a pasta "vendor")
+ARQUIVOS DO PACOTE (envie TODOS para o GitHub — são 12 arquivos, sem pastas)
   index.html              → o controle completo (Painel BI, Críticos, Necessidade × Follow,
                             Linha do tempo, Rodovias, Indicadores, Painel 3D etc.)
   manifest.webmanifest    → nome e ícone (faz aparecer "Instalar app")
   sw.js                   → deixa o controle abrir sem internet
   icon-192.png, icon-512.png, icon-maskable-512.png, apple-touch-icon.png → ícones
-  vendor/                 → bibliotecas usadas pelo controle (Excel, PDF e 3D).
-                            Ficam dentro do pacote para funcionar mesmo sem internet.
+  three.min.js, OrbitControls.js, xlsx.full.min.js, jspdf.umd.min.js
+                          → bibliotecas do 3D, do Excel e do PDF (sem elas a página não abre)
 
 PASSO A PASSO — GITHUB PAGES (grátis)
  1. Entre em github.com com a sua conta.
@@ -16,7 +16,7 @@ PASSO A PASSO — GITHUB PAGES (grátis)
     Repository name: controle-iveco  ·  marque "Public"  ·  "Create repository".
  3. Clique em "uploading an existing file".
  4. Descompacte o .zip. Abra a pasta controle-iveco e ARRASTE para a área de upload
-    todo o conteúdo dela: os arquivos E a pasta "vendor".
+    TODOS os 12 arquivos de uma vez.
  5. "Commit changes".
  6. "Settings" → "Pages" → Branch: "main", pasta "/ (root)" → "Save".
  7. Em 1 a 2 minutos aparece o endereço:
@@ -51,8 +51,8 @@ O QUE MUDA EM RELAÇÃO À VERSÃO DO CLAUDE — LEIA COM ATENÇÃO
 
 PARA ATUALIZAR O CONTROLE DEPOIS
   1. No repositório: "Add file" → "Upload files" e envie o index.html novo por cima.
-  2. Abra o sw.js (ícone de lápis) e troque  controle-iveco-v1  por  controle-iveco-v2
-     (v3, v4... a cada atualização). Os aparelhos pegam a versão nova na próxima
+  2. Abra o sw.js (ícone de lápis) e troque  controle-iveco-v2  por  controle-iveco-v3
+     (v4, v5... a cada atualização). Os aparelhos pegam a versão nova na próxima
      vez que abrirem com internet. Os dados salvos NÃO são apagados na atualização.
 
 ATENÇÃO À PRIVACIDADE
