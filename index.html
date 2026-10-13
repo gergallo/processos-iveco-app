@@ -46,6 +46,14 @@ table.tb .tb-olho{display:inline-block;margin-left:8px;font-size:15px;line-heigh
 .cf-b{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;padding:0 16px 16px}.cf-g{border-radius:10px;padding:10px 12px;border:1px solid var(--line)}.cf-g.r{background:#FDE7E5;border-color:#F5B8B1}.cf-g.o{background:#FFF0DC;border-color:#F6CF9C}.cf-g.y{background:#FFF8D6;border-color:#EADB8A}.cf-g.g{background:var(--surface2)}
 .cf-gh{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:baseline;margin-bottom:8px;color:#13202A}.cf-gh .sub{flex-basis:100%;font-size:12px}.cf-n{background:#13202A;color:#fff;border-radius:10px;padding:0 8px;font-size:12px;font-weight:700}
 .cf-l{display:flex;flex-direction:column;gap:5px}.cf-c{all:unset;box-sizing:border-box;display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:7px;padding:6px 9px;cursor:pointer;color:#13202A}.cf-c:hover{border-color:var(--accent)}.cf-c .sub{font-size:12px;color:#5A6A77}.cf-c:focus-visible{outline:2px solid var(--accent)}
+table.tb.fc th{cursor:default;vertical-align:bottom}table.tb.fc th.fil{background:#FFF2CC}.fc-th{display:flex;gap:6px;align-items:flex-end;justify-content:space-between}.fc-th span{white-space:normal;line-height:1.2}
+.fc-fb{flex:none;width:20px;height:20px;border:1px solid #9FB0BD;border-radius:3px;background:#fff;color:#33424E;font-size:11px;line-height:1;cursor:pointer;padding:0}.fc-fb:hover{border-color:#1F4E78;color:#1F4E78}th.fil .fc-fb{background:#1F4E78;color:#fff;border-color:#1F4E78}
+.fc-pop{position:fixed;z-index:80;width:290px;background:#fff;color:#13202A;border:1px solid #9FB0BD;border-radius:6px;box-shadow:0 14px 34px rgba(0,0,0,.22);font:13px "Segoe UI",Arial,sans-serif;text-transform:none;letter-spacing:0;font-weight:400;padding:6px 0;cursor:default}
+.fc-po{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 12px;font:inherit;color:inherit;cursor:pointer}.fc-po:hover{background:#EAF2FB}
+.fc-pq{display:block;width:calc(100% - 20px);margin:6px 10px;padding:6px 8px;border:1px solid #B7C3CE;border-radius:4px;font:inherit}
+.fc-pl{max-height:240px;overflow:auto;margin:0 10px;border:1px solid #DFE5EA;border-radius:4px;padding:4px 0}.fc-pl label{display:flex;gap:7px;align-items:center;padding:3px 8px;cursor:pointer;white-space:nowrap}.fc-pl label:hover{background:#F2F5F8}.fc-pl label[hidden]{display:none}.fc-pl .sub{margin-left:auto}.fc-all{border-bottom:1px solid #DFE5EA;font-weight:600}
+.fc-pb{display:flex;gap:8px;justify-content:flex-end;padding:8px 10px 4px}.fc-pb .btn{padding:6px 14px}
+.fc-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.fc-copy{font-weight:700}.fc-wrap{max-height:calc(100vh - 210px)}.fc-nota{margin:6px 2px 0}
 .tbsec{display:flex;flex-direction:column;gap:10px}
 .tb-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .tb-dd{position:relative}
@@ -639,6 +647,7 @@ pre.resumo{white-space:pre-wrap;background:var(--surface2);border:1px solid var(
 
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" data-tab="tab" aria-selected="true" type="button">📋 Tabela</button>
+    <button class="tab" role="tab" data-tab="fc" aria-selected="false" type="button">📨 Follow cliente</button>
     <button class="tab" role="tab" data-tab="bi" aria-selected="false" type="button">Painel BI</button>
     <button class="tab tab-3d" role="tab" data-tab="anim" aria-selected="false" type="button">🚛 Painel 3D</button>
     <button class="tab" role="tab" data-tab="crit" aria-selected="false" type="button">Críticos Iveco<span class="c crit" id="c-crit">0</span></button>
@@ -668,6 +677,7 @@ pre.resumo{white-space:pre-wrap;background:var(--surface2);border:1px solid var(
   </div>
 
   <section id="v-tab" class="tbsec"></section>
+  <section id="v-fc" class="tbsec" hidden></section>
   <section id="v-bi" class="bi" hidden></section>
   <section id="v-crit" class="crit-view" hidden></section>
   <section id="v-comp" class="tbl-wrap" hidden></section>
@@ -804,6 +814,107 @@ function renderTab(){
     try{ await dl.save({filename:nome,data:new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}); toast("Planilha salva: "+nome); }catch(e){ if(e.code!=="declined") toast("Não foi possível exportar."); } };
 }
 document.addEventListener("click",()=>{ const p=document.getElementById("tb-pop"); if(p&&!p.hidden){ p.hidden=true; const b=document.getElementById("tb-d"); b&&b.setAttribute("aria-expanded","false"); } });
+/* ---------- aba Follow cliente: resumo estilo Excel para enviar ao cliente ---------- */
+const FC_COLS=[
+  {k:"id",t:"ID (Nº CTRN/NºPROCESSO/NF)",w:22},
+  {k:"local",t:"LOCAL DE ENTREGA",w:16},
+  {k:"status",t:"STATUS GERAL",w:22},
+  {k:"loc",t:"LOCALIZAÇÃO",w:30},
+  {k:"inicio",t:"INICIO DE VIAGEM",w:17,dt:1},
+  {k:"prev",t:"PREV. DE CHEGADA",w:17,dt:1},
+  {k:"prog",t:"DATA PROGRAMADA",w:17,dt:1},
+  {k:"cheg",t:"CHEGADA NO CLIENTE",w:17,dt:1},
+  {k:"cav",t:"PLACA CAVALO",w:12},
+  {k:"reb",t:"PLACA REBOQUE",w:12},
+  {k:"mot",t:"MOTORISTA",w:28},
+  {k:"marca",t:"MARCA DO VEÍCULO",w:14}];
+const FC={src:"ult", ord:null, filt:{}, open:null, oq:""};
+try{ const t=JSON.parse(localStorage.getItem("iveco.fc")||"null"); if(t){ FC.src=t.src||"ult"; FC.ord=t.ord||null; FC.filt=t.filt||{}; } }catch(e){}
+function fcSalva(){ try{ localStorage.setItem("iveco.fc",JSON.stringify({src:FC.src,ord:FC.ord,filt:FC.filt})); }catch(e){} }
+const fcDT=s=>{ if(!s) return ""; const m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/); return m?`${m[3]}/${m[2]}/${m[1]}${m[4]?" "+m[4]+":"+m[5]:""}`:String(s); };
+function fcLinhas(){ const uf=String(state.meta.ultimoFollow||"").slice(0,16), vistos=new Set(), L=[];
+  Object.values(state.follow).filter(f=>FC.src==="todos"||!uf||String(f.atualizadoEm||"").slice(0,16)>=uf)
+    .sort((a,b)=>String(a.container).localeCompare(String(b.container)))
+    .forEach(f=>{ const id=String(f.idOriginal||f.container||"").trim(); if(vistos.has(id)) return; vistos.add(id);
+      L.push({_f:f, id, local:f.local_entrega||"", status:f.status||"", loc:f.localizacao||"", inicio:f.inicio||"", prev:f.prev_chegada||"", prog:f.data_prog||"", cheg:f.chegada||"",
+        cav:f.placa_cavalo||"", reb:f.placa_reboque||"", mot:f.motorista||"", marca:f.marca||""}); });
+  return L; }
+const fcTxt=(r,c)=>c.dt?fcDT(r[c.k]):String(r[c.k]||"");
+function fcAplica(L,exceto){ return L.filter(r=>FC_COLS.every(c=>{ if(c.k===exceto) return true; const f=FC.filt[c.k]; return !f||f.includes(fcTxt(r,c)); })); }
+function renderFC(){
+  { const tbar=document.querySelector(".toolbar"); if(tbar&&state.tab==="fc") tbar.hidden=true; }
+  const el=$("#v-fc"); if(!el||el.hidden) return;
+  const L=fcLinhas(); let rows=fcAplica(L);
+  if(FC.ord){ const c=FC_COLS.find(x=>x.k===FC.ord.k); if(c){ const v=r=>c.dt?String(r[c.k]||"9999"):fcTxt(r,c).toUpperCase(); rows.sort((a,b)=>(v(a)<v(b)?-1:v(a)>v(b)?1:0)*FC.ord.d); } }
+  const nF=Object.keys(FC.filt).length, uf=state.meta.ultimoFollow;
+  const pop=k=>{ const c=FC_COLS.find(x=>x.k===k); const base=fcAplica(L,k), cont={}; base.forEach(r=>{ const t=fcTxt(r,c); cont[t]=(cont[t]||0)+1; });
+    const vals=Object.keys(cont).sort((a,b)=>c.dt?a.split(" ")[0].split("/").reverse().join("").concat(a.split(" ")[1]||"").localeCompare(b.split(" ")[0].split("/").reverse().join("").concat(b.split(" ")[1]||"")):a.localeCompare(b,"pt-BR"));
+    const sel=FC.filt[k]; const q=norm(FC.oq||"");
+    return `<div class="fc-pop" id="fc-pop" role="dialog" aria-label="Filtro ${esc(c.t)}">
+      <button type="button" class="fc-po" data-so="1">↑ Classificar de A a Z${c.dt?" (mais antiga)":""}</button>
+      <button type="button" class="fc-po" data-so="-1">↓ Classificar de Z a A${c.dt?" (mais recente)":""}</button>
+      ${sel?`<button type="button" class="fc-po" data-limpa="1">✕ Limpar filtro de "${esc(c.t)}"</button>`:""}
+      <input class="fc-pq" id="fc-pq" type="search" placeholder="Pesquisar" value="${esc(FC.oq||"")}">
+      <div class="fc-pl"><label class="fc-all"><input type="checkbox" data-all="1" ${!sel?"checked":""}> (Selecionar tudo)</label>
+      ${vals.map(v=>`<label ${q&&!norm(v||"(vazias)").includes(q)?"hidden":""}><input type="checkbox" value="${esc(v)}" ${!sel||sel.includes(v)?"checked":""}> ${v?esc(v):"<i>(Vazias)</i>"} <span class="sub">${cont[v]}</span></label>`).join("")}</div>
+      <div class="fc-pb"><button type="button" class="btn primary" data-ok="1">OK</button><button type="button" class="btn" data-x="1">Cancelar</button></div></div>`; };
+  el.innerHTML=`<div class="fc-top">
+      <div class="tb-seg" role="group" aria-label="Base"><button type="button" data-src="ult" class="${FC.src==="ult"?"on":""}">Último follow${uf?" · "+esc(fmt(uf)):""}</button><button type="button" data-src="todos" class="${FC.src==="todos"?"on":""}">Todos os follows</button></div>
+      <span class="tb-n"><b>${rows.length}</b> de ${L.length} linha${L.length===1?"":"s"}${nF?` · ${nF} filtro${nF>1?"s":""} ativo${nF>1?"s":""}`:""}</span>
+      ${nF||FC.ord?`<button class="btn" type="button" id="fc-clr">Limpar filtros e ordem</button>`:""}
+      <span style="flex:1"></span>
+      <button class="btn" type="button" id="fc-xls">Exportar Excel</button>
+      <button class="btn primary fc-copy" type="button" id="fc-copy">📋 Copiar follow</button></div>
+    <div class="tb-wrap fc-wrap"><table class="tb fc" id="fc-t"><thead><tr><th class="tb-i">#</th>${FC_COLS.map(c=>`<th class="${FC.filt[c.k]?"fil":""} ${FC.ord&&FC.ord.k===c.k?"on":""}"><div class="fc-th"><span>${esc(c.t)}${FC.ord&&FC.ord.k===c.k?(FC.ord.d>0?" ▲":" ▼"):""}</span><button type="button" class="fc-fb" data-fk="${c.k}" aria-label="Filtrar e classificar ${esc(c.t)}" title="Filtrar e classificar">${FC.filt[c.k]?"⏷":"▾"}</button></div>${FC.open===c.k?pop(c.k):""}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map((r,i)=>`<tr class="${/ENTREG/i.test(r.status)?"tb-ok":/MANUTEN/i.test(r.status)?"tb-man":""}"><td class="tb-i">${i+1}</td>${FC_COLS.map(c=>`<td class="${c.k==="id"||c.k==="cav"||c.k==="reb"?"mono":""}">${esc(fcTxt(r,c))}</td>`).join("")}</tr>`).join("")||`<tr><td colspan="${FC_COLS.length+1}" class="tb-vz">Nenhuma linha com esses filtros.</td></tr>`}</tbody></table></div>
+    <p class="sub fc-nota">Clique em ▾ no título de cada coluna para classificar ou selecionar valores, como no filtro do Excel. O botão <b>Copiar follow</b> copia só as linhas visíveis, na ordem da tela, já formatadas para colar no e-mail, no WhatsApp Web ou no Excel.</p>`;
+  el.querySelectorAll("[data-src]").forEach(b=>b.onclick=()=>{ FC.src=b.dataset.src; fcSalva(); renderFC(); });
+  const clr=el.querySelector("#fc-clr"); if(clr) clr.onclick=()=>{ FC.filt={}; FC.ord=null; fcSalva(); renderFC(); };
+  el.querySelectorAll(".fc-fb").forEach(b=>b.onclick=e=>{ e.stopPropagation(); FC.open=FC.open===b.dataset.fk?null:b.dataset.fk; FC.oq=""; renderFC(); });
+  const p=el.querySelector("#fc-pop");
+  if(p){ const k=FC.open; p.onclick=e=>e.stopPropagation();
+    { const fb=el.querySelector(`.fc-fb[data-fk="${k}"]`).getBoundingClientRect(), W=290; p.style.top=Math.min(fb.bottom+4, innerHeight-60)+"px"; p.style.left=Math.max(8,Math.min(fb.right-W, innerWidth-W-8))+"px"; }
+    p.querySelectorAll("[data-so]").forEach(b=>b.onclick=()=>{ FC.ord={k,d:+b.dataset.so}; FC.open=null; fcSalva(); renderFC(); });
+    const lp=p.querySelector("[data-limpa]"); if(lp) lp.onclick=()=>{ delete FC.filt[k]; FC.open=null; fcSalva(); renderFC(); };
+    const all=p.querySelector("[data-all]"), cks=[...p.querySelectorAll('.fc-pl input:not([data-all])')];
+    all.onchange=()=>cks.forEach(c=>{ if(!c.closest("label").hidden) c.checked=all.checked; });
+    cks.forEach(c=>c.onchange=()=>{ all.checked=cks.every(x=>x.checked); });
+    const pq=p.querySelector("#fc-pq"); pq.oninput=()=>{ FC.oq=pq.value; const q=norm(pq.value); cks.forEach(c=>{ const l=c.closest("label"); l.hidden=!!q&&!norm(c.value||"(vazias)").includes(q); }); };
+    setTimeout(()=>pq.focus(),0);
+    p.querySelector("[data-ok]").onclick=()=>{ const vis=cks.filter(c=>!c.closest("label").hidden), marc=vis.filter(c=>c.checked).map(c=>c.value);
+      if(FC.oq&&vis.length<cks.length) FC.filt[k]=marc; else if(cks.every(c=>c.checked)) delete FC.filt[k]; else FC.filt[k]=cks.filter(c=>c.checked).map(c=>c.value);
+      FC.open=null; fcSalva(); renderFC(); };
+    p.querySelector("[data-x]").onclick=()=>{ FC.open=null; renderFC(); }; }
+  el.querySelector("#fc-copy").onclick=()=>fcCopiar(rows);
+  el.querySelector("#fc-xls").onclick=async()=>{ if(typeof XLSX==="undefined"){ toast("Excel indisponível"); return; }
+    const aoa=[FC_COLS.map(c=>c.t)].concat(rows.map(r=>FC_COLS.map(c=>fcTxt(r,c))));
+    const ws=XLSX.utils.aoa_to_sheet(aoa); ws["!cols"]=FC_COLS.map(c=>({wch:c.w})); ws["!autofilter"]={ref:"A1:"+String.fromCharCode(64+FC_COLS.length)+aoa.length};
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Follow"); const buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
+    const d=new Date(), nome=`Follow_Iveco_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.xlsx`;
+    const dl=await window.claude?.use?.("downloads"); if(!dl){ toast("Download indisponível nesta visualização."); return; }
+    try{ await dl.save({filename:nome,data:new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}); toast("Planilha salva: "+nome); }catch(e){ if(e.code!=="declined") toast("Não foi possível exportar."); } };
+}
+async function fcCopiar(rows){
+  if(!rows.length){ toast("Nenhuma linha para copiar"); return; }
+  /* versão para o corpo do e-mail: fonte 9pt em cada célula (Outlook respeita <span>), sem quebra nas colunas curtas, centralizado */
+  const H={id:"ID<br>(Nº CTRN/<br>NºPROCESSO/NF)",local:"LOCAL DE<br>ENTREGA",status:"STATUS<br>GERAL",loc:"LOCALIZAÇÃO",inicio:"INICIO DE<br>VIAGEM",prev:"PREV. DE<br>CHEGADA",prog:"DATA<br>PROGRAMADA",cheg:"CHEGADA NO<br>CLIENTE",cav:"PLACA<br>CAVALO",reb:"PLACA<br>REBOQUE",mot:"MOTORISTA",marca:"MARCA DO<br>VEÍCULO"};
+  const WR={loc:135,mot:130,id:100,status:100};
+  const curto=(r,c)=>{ const v=fcTxt(r,c).replace(/^\(vazio\)$/i,""); return c.dt?v.replace(/^(\d{2}\/\d{2})\/\d{4}/,"$1"):c.k==="id"?v.replace(/\s*\/\s*/g," / "):v; };
+  const corSt=s=>/MANUTEN|OCORR|PARADO/i.test(s)?"#C00000":/ENTREG/i.test(s)?"#2E7D32":/DESCARGA/i.test(s)?"#B26A00":/TR[AÂ]NSITO/i.test(s)?"#1F4E78":"#404040";
+  const F=(t,cor,b)=>`<span style="font-family:Calibri,Arial,sans-serif;font-size:9pt;color:${cor||"#262626"};${b?"font-weight:bold;":""}">${t}</span>`;
+  const th=c=>`<th align="center" valign="middle" style="background:#1F4E78;border:1px solid #8EA9C1;padding:3px 4px;text-align:center;vertical-align:middle;white-space:nowrap">${F(H[c.k],"#FFFFFF",1)}</th>`;
+  const td=(r,i,c)=>{ const v=curto(r,c), wrap=WR[c.k]; const st=c.k==="status";
+    return `<td align="center" valign="middle"${wrap?` width="${wrap}"`:""} style="border:1px solid #BFCCD8;padding:2px 4px;text-align:center;vertical-align:middle;${wrap?`width:${wrap}px;`:"white-space:nowrap;"}background:${i%2?"#EEF3F8":"#FFFFFF"}">${F(esc(v)||"&nbsp;",st?corSt(v):c.k==="id"?"#000000":null,st||c.k==="id")}</td>`; };
+  const html=`<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;mso-table-lspace:0;mso-table-rspace:0"><thead><tr>${FC_COLS.map(th).join("")}</tr></thead><tbody>${rows.map((r,i)=>`<tr>${FC_COLS.map(c=>td(r,i,c)).join("")}</tr>`).join("")}</tbody></table>`;
+  const txt=[FC_COLS.map(c=>c.t).join("\t")].concat(rows.map(r=>FC_COLS.map(c=>fcTxt(r,c)).join("\t"))).join("\n");
+  let ok=false;
+  try{ if(navigator.clipboard&&window.ClipboardItem){ await navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([html],{type:"text/html"}),"text/plain":new Blob([txt],{type:"text/plain"})})]); ok=true; } }catch(e){}
+  if(!ok){ try{ const d=document.createElement("div"); d.style.cssText="position:fixed;left:-9999px;top:0"; d.innerHTML=html; document.body.appendChild(d);
+      const s=getSelection(), rg=document.createRange(); rg.selectNodeContents(d); s.removeAllRanges(); s.addRange(rg); ok=document.execCommand("copy"); s.removeAllRanges(); d.remove(); }catch(e){} }
+  if(!ok){ try{ await navigator.clipboard.writeText(txt); ok=true; }catch(e){} }
+  toast(ok?`Follow copiado · ${rows.length} linha${rows.length>1?"s":""}. Cole no e-mail (Ctrl+V)`:"Não foi possível copiar — use Exportar Excel");
+}
+document.addEventListener("click",()=>{ if(FC.open){ FC.open=null; renderFC(); } });
 /* ---------- Painel 3D animado ---------- */
 const A3={ok:false, loading:null, scene:null, renderer:null, camera:null, controls:null, clock:null, raf:0, vis:false, objs:[], pick:[], anims:[], sig:"",
   curve:null, curveB:null, logoTex:null, logoSrc:null, sound:false, audio:null, tour:false, tourI:0, labels:true, hid:new Set(), sel:null, hover:null, audioNodes:null};
@@ -1313,7 +1424,7 @@ function a3PortariaPasso(dt,tt){ (A3.portarias||[]).forEach(P=>{ P.canc.forEach(
 function a3Tipo(p){ const t=String((p&&p.tipo_veiculo)||"").toUpperCase(); return /BITREM/.test(t)?"bitrem":/RODO/.test(t)?"rodotrem":/SIDER/.test(t)?"sider":/TRUCK/.test(t)?"truck":"carreta"; }
 function a3Dados(){
   const sel=A3.selCn&&A3.selCn.size?A3.selCn:null, hoje=iso(new Date()).slice(0,10);
-  const rows=sel? biLinhas().filter(r=>sel.has(r.cn)) : biFiltra(biLinhas()).filter(r=>r.carga!=="entregue"||(r.f&&r.f.chegada&&dia(r.f.chegada)===hoje));
+  const base=biLinhas(), emOp=new Set(biFiltra(base).map(r=>r.cn)); const rows=sel? base.filter(r=>sel.has(r.cn)) : biFiltra(base,"carga").filter(r=>emOp.has(r.cn)||(r.carga==="entregue"&&r.f&&r.f.chegada&&dia(r.f.chegada)===hoje));
   const RK={crit:0,warn:1,ok:2,info:3}, porPl={}, sv=[];
   rows.forEach(r=>{ if(!r.f){ sv.push(r); return; } const k=r.placa||r.cn; (porPl[k]=porPl[k]||[]).push(r); });
   const vs=Object.entries(porPl).map(([pl,rs])=>{ const r0=rs.slice().sort((a,b)=>RK[a.tone]-RK[b.tone])[0], f=r0.f, q=f.chegada?null:restante(f,new Date());
@@ -1359,6 +1470,9 @@ function a3Popular(){
       if(v.est==="desc"&&S.doca<8){ const i=S.doca++; o=pl.g.localToWorld(new THREE.Vector3(-18.9+i*5.4,0,.4+L)); a.naDoca=true; }
       else { const i=S.patio++, fila=Math.floor(i/9)%2, col=i%9, extra=Math.floor(i/18); o=pl.g.localToWorld(new THREE.Vector3(-21.6+col*5.4+extra*1.2,0,(fila?pl.G.r1:pl.G.r0)+L)); if(v.est==="desc"){ v.est="patio"; v.sitTxt="Aguardando doca livre na "+(v.dest==="Betim"?"Sada Betim":"Iveco 7 Lagoas"); } }
       o.y=pl.y+.3*pl.esc; a.path=a3PathReta(o,pl.fwd); a.modo="park"; }
+    else if(v.carga==="porto"&&(v.node==="betim"||/SADA BETIM/i.test((v.f&&v.f.localizacao)||""))&&A3.plantas["Sada Betim"]){ const pl=A3.plantas["Sada Betim"], k=pl.rot, S=slot[k]=slot[k]||{doca:0,patio:0}, L=pl.G.L;
+      const i=S.patio++, fila=Math.floor(i/9)%2, col=i%9, extra=Math.floor(i/18); const o=pl.g.localToWorld(new THREE.Vector3(-21.6+col*5.4+extra*1.2,0,(fila?pl.G.r1:pl.G.r0)+L)); o.y=pl.y+.3*pl.esc;
+      a.path=a3PathReta(o,pl.fwd); a.modo="park"; v.sitTxt="Aguardando veículo na Sada Betim · "+BI_SIT[v.tone]+(v.rs[0].gap!=null?" "+dur(v.rs[0].gap):""); }
     else if(v.carga==="porto"||!v.node){ const i=(slot.porto=(slot.porto||0)+1)-1; const o=new THREE.Vector3(A3.portoPos.x-(i%6)*6.2,A3.portoC.y,A3.portoPos.z-Math.floor(i/6)*27); a.path=a3PathReta(o,new THREE.Vector3(0,0,1)); a.modo="park"; }
     else { const info=a3PontoNo(v.node); if(!info){ a.path=a3PathReta(A3.portoPos.clone(),new THREE.Vector3(0,0,1)); a.modo="park"; } else { a.info=info; const LA=A3.curve.userData.L;
         if(info.cv===A3.curveB){ const sBH=A3.sB0, LB=A3.curveB.userData.L; a.cv=A3.curve; a.grp="B"; a.s0=Math.min(sBH+info.t*LB, sBH+LB-46); a.mkPath=fx=>{ const pa=a3PathPista(A3.curve,fx), pb=a3PathPista(A3.curveB,fx); return s=>s<sBH?pa(s):pb(s-sBH); }; a.path=a.mkPath(2.6); }
@@ -1473,7 +1587,7 @@ function a3AtivaSom(v){ A3.sound=v; if(v&&!A3.audioNodes){ try{ const ctx=new (w
   if(A3.audioNodes&&A3.audioNodes.ctx.state==="suspended") A3.audioNodes.ctx.resume(); }
 /* ---------- HUD, seleção e tour ---------- */
 function a3Hud(vs,sv){ const el=document.getElementById("a3-hud"); if(!el) return; const c=k=>vs.filter(v=>v.est===k).length;
-  const it=[["crit","🚨","Atrasados",c("crit")+c("manut")],["warn","❗","Em risco",c("warn")],["ok","👍","No prazo",c("ok")],["porto","🏗️","Aguardando na Sada Caju",vs.filter(v=>v.carga==="porto").length],["patio","🅿️","No pátio (chegou)",c("patio")],["desc","📦","Descarregando na doca",c("desc")],["done","✅","Entregues hoje",c("done")],["info","⏳","Sem veículo",sv.length]];
+  const it=[["crit","🚨","Atrasados",c("crit")+c("manut")],["warn","❗","Em risco",c("warn")],["ok","👍","No prazo",c("ok")],["porto","🏗️","Aguardando na Sada Caju",vs.filter(v=>v.carga==="porto"&&v.node!=="betim").length],["patio","🅿️","No pátio (chegou)",c("patio")],["desc","📦","Descarregando na doca",c("desc")],["done","✅","Entregues hoje",c("done")],["info","⏳","Sem veículo",sv.length]];
   el.innerHTML=it.map(([k,e,t,n])=>`<button type="button" class="a3-chip${A3.soCat===k?" sel":A3.soCat?" off":""}" data-a3h="${k}" aria-pressed="${A3.soCat===k}" style="--c:#${(A3_COR[k]||(k==="porto"?0xD98E04:0x4755A0)).toString(16).padStart(6,"0")}" title="${A3.soCat===k?"Mostrar todos de novo":"Mostrar só "+t.toLowerCase()}"><span>${e}</span><b>${n}</b><small>${t}</small></button>`).join("");
   el.querySelectorAll("[data-a3h]").forEach(b=>b.onclick=()=>{ const k=b.dataset.a3h; A3.soCat=A3.soCat===k?null:k; A3.seguir=null; a3Popular(); A3.sig=a3Sig(); a3Banner(); if(A3.soCat) a3Enquadrar(); else a3VisaoGeral(); });
 }
@@ -1493,7 +1607,7 @@ function a3Tour(){ if(!A3.tour) return; const alvos=A3.anims.filter(a=>a.wrap); 
 /* ---------- filtro de containers do Painel 3D (seleção múltipla) ---------- */
 try{ A3.selCn=new Set(JSON.parse(localStorage.getItem("iveco.a3sel")||"[]")); }catch(e){ A3.selCn=new Set(); }
 try{ A3.todosNum=localStorage.getItem("iveco.a3num")==="1"; }catch(e){}
-function a3Mostra(est,v){ const c=A3.soCat; if(!c) return true; if(c==="porto") return !!(v&&v.carga==="porto"&&!v.manut&&v.est!=="desc"&&v.est!=="patio"&&v.est!=="done"); if(c==="crit") return est==="crit"||est==="manut"; return est===c; }
+function a3Mostra(est,v){ const c=A3.soCat; if(!c) return true; if(c==="porto") return !!(v&&v.carga==="porto"&&v.node!=="betim"&&!v.manut&&v.est!=="desc"&&v.est!=="patio"&&v.est!=="done"); if(c==="crit") return est==="crit"||est==="manut"; return est===c; }
 function a3LimpaTudo(){ A3.selCn=new Set(); A3.soCat=null; A3.seguir=null; a3SalvaSel(); try{ localStorage.removeItem("iveco.a3sel"); }catch(e){} a3AplicaSel(); if(A3.ok){ a3VisaoGeral(); a3Selecionar(null); } }
 function a3SalvaSel(){ try{ localStorage.setItem("iveco.a3sel",JSON.stringify([...A3.selCn])); }catch(e){} }
 function a3Candidatos(){ const hoje=iso(new Date()).slice(0,10);
@@ -1706,17 +1820,22 @@ const isLinha = p => /LINHA/i.test(p.criticidade||"");
 const isCrit = p => !!(p && String(p.criticidade||"").trim());
 
 /* follow vigente: ignora follow de viagem anterior (chegada antes do carregamento desta programação) */
+/* "(vazio)", "-", "N/A" da planilha = campo em branco (senão vários containers sem placa viram "1 veículo") */
+function limpaVazios(f){ ["placa_cavalo","placa_reboque","motorista","marca","localizacao","local_entrega"].forEach(k=>{ if(typeof f[k]==="string"&&/^\s*(\(?\s*vazi[oa]\s*\)?|-+|n\/?a|null|—)\s*$/i.test(f[k])) f[k]=""; }); return f; }
 function followVelho(f,p){ if(!f||!p||!f.chegada||!p.data_carregamento) return false; const c=toD(f.chegada), d=toD(p.data_carregamento); return !!(c&&d&&(d-c)>2*864e5); }
+/* programação vigente: está na última programação importada (imports não apagam quem saiu da planilha) */
+function progVigente(p){ const up=String(state.meta.ultimaProg||"").slice(0,16); return !!p&&(!up||String(p.atualizadoEm||"").slice(0,16)>=up); }
 function followDe(cn){ const f=state.follow[cn], p=state.prog[cn]; return followVelho(f,p)?undefined:f; }
 /* conferência programação × follow (último follow importado) */
 function confereFollow(r){ const p=r.p, fo=state.follow[r.cn], uf=String(state.meta.ultimoFollow||"").slice(0,16);
+  if(p&&!progVigente(p)) return "";
   if(p&&!fo) return "nunca"; if(p&&followVelho(fo,p)) return "anterior";
   if(p&&fo&&uf&&String(fo.atualizadoEm||"").slice(0,16)<uf&&r.carga!=="entregue") return "saiu";
   if(!p&&fo&&uf&&String(fo.atualizadoEm||"").slice(0,16)>=uf) return "semprog";
   return ""; }
 function linhasComp(){
   const now = new Date();
-  return Object.values(state.prog).map(p => ({p, f:followDe(p.container), a:analisa(p, followDe(p.container), now)}))
+  return Object.values(state.prog).filter(p=>progVigente(p)).map(p => ({p, f:followDe(p.container), a:analisa(p, followDe(p.container), now)}))
     .sort((x,y)=> x.a.rank-y.a.rank || (isLinha(y.p)-isLinha(x.p)) || String(x.p.necessidade).localeCompare(String(y.p.necessidade)));
 }
 function filtra(rows, pick){
@@ -1741,7 +1860,7 @@ function render(){
   renderKpis(scoped); renderInsights(scoped);
   const rows = filtra(all, r => [r.p.container, r.f&&r.f.motorista, r.f&&r.f.placa_cavalo, r.f&&r.f.localizacao, r.p.solicitante, r.p.navio].join(" "));
   $("#c-comp").textContent = rows.length;
-  renderComp(rows); renderTl(rows); renderFora(); renderProg(); renderInd(); renderCrit(); renderRod(); renderBI(); renderAnim(); renderTab();
+  renderComp(rows); renderTl(rows); renderFora(); renderProg(); renderInd(); renderCrit(); renderRod(); renderBI(); renderAnim(); renderTab(); renderFC();
 }
 
 function renderDias(){
@@ -2267,7 +2386,7 @@ function painelRodCliente(){
 
 
 /* distância e tempo restantes até a Iveco (km estimados pela cidade informada no follow) */
-function kmRestante(f){ if(!f) return null; if(f.km_manual!=null&&f.km_manual!==""&&f.km_loc===f.localizacao) return +f.km_manual; const rota=rotaDe(f), dest=rota[rota.length-1], n=noDe(f.localizacao); if(n&&NO[n]&&NO[n].dyn) return kmAte(NO[n],dest); if(!n||rota.indexOf(n)<0) return null; return Math.max(0, NO[dest].km-NO[n].km); }
+function kmRestante(f){ if(!f) return null; if(f.km_manual!=null&&f.km_manual!==""&&f.km_loc===f.localizacao) return +f.km_manual; const rota=rotaDe(f), dest=rota[rota.length-1], n=noDe(f.localizacao); if(n&&NO[n]&&NO[n].dyn) return kmAte(NO[n],dest); if(n==="betim"&&dest==="sete") return (NO.betim.km-NO.bh.km)+(NO.sete.km-NO.bh.km); if(!n||rota.indexOf(n)<0) return null; return Math.max(0, NO[dest].km-NO[n].km); }
 function velMedia(){ const lead=calcInd("tudo").lead; return lead ? Math.min(70,Math.max(25, NO.sete.km/(lead/60))) : 40; }
 function restante(f, now){
   if(!f) return null;
@@ -2496,8 +2615,8 @@ function biConfere(rows){ const uf=state.meta.ultimoFollow; if(!Object.keys(stat
     ${aberto&&n?`<div class="cf-b">${bloco("nunca","Sem follow","programados e sem nenhum registro no follow","r")}${bloco("anterior","Follow só de viagem anterior","o follow existente é de uma entrega antiga, antes do carregamento desta programação","o")}${bloco("saiu","Saíram do follow em aberto","estavam no follow anterior, sem entrega, e não vieram no último follow","y")}${bloco("semprog","No follow sem programação","aparecem no último follow mas não estão na programação Iveco","g")}</div>`:""}</section>`; }
 function biLinhas(){
   const now=new Date(), lead=calcInd("tudo").lead;
-  const keys=new Set([...Object.keys(state.follow),...Object.keys(state.prog)]);
-  return [...keys].map(cn=>{ const f=followDe(cn), p=state.prog[cn];
+  const keys=new Set([...Object.keys(state.follow),...Object.keys(state.prog).filter(cn=>progVigente(state.prog[cn]))]);
+  return [...keys].map(cn=>{ const p0=state.prog[cn], p=progVigente(p0)?p0:undefined, f=p?followDe(cn):state.follow[cn];
     const need=(p&&p.necessidade)||(f&&f.data_prog)||null, nd=toD(need);
     let carga;
     if(!f) carga="semveic";
@@ -2507,7 +2626,7 @@ function biLinhas(){
     else if(!f.prev_chegada && /AGUARDANDO CARREG|PORTO|PROGRAMA/i.test((f.localizacao||"")+" "+(f.status||""))) carga="porto";
     else carga="transito";
     const est = (carga==="porto"||carga==="semveic") && lead ? new Date(+now+lead*60000) : null;
-    const ref = f&&f.chegada ? toD(f.chegada) : (f&&f.prev_chegada ? toD(f.prev_chegada) : est);
+    const ref = f&&f.chegada ? toD(f.chegada) : (f&&f.prev_chegada ? toD(f.prev_chegada) : (carga==="transito" ? ((restante(f,now)||{}).eta||est) : est));
     const gap = nd&&ref ? (ref-nd)/60000 : null;
     let tone;
     if(!nd) tone="info";
@@ -2530,7 +2649,7 @@ function biFiltra(rows, ignora){
   return rows.filter(r=>{
     if(cn.length && !cn.includes(r.cn)) return false;
     if(crit.length && !(crit.includes(r.crit) || (r.crit && crit.includes("__crit__")) || (!r.crit && crit.includes("__sem__")))) return false;
-    if(dias.length && !dias.includes(dia(r.p&&r.p.necessidade))) return false;
+    if(dias.length && !dias.includes(dia(r.need))) return false;
     if(ignora!=="carga" && carga.length && !carga.includes(r.carga)) return false;
     if(ignora!=="dest" && dest.length && !dest.includes(r.dest)) return false;
     if(ignora!=="sit" && sit.length && !sit.includes(r.tone)) return false;
@@ -2582,16 +2701,19 @@ function biMapa(rows, now){
   [...new Set(rows.filter(r=>r.manut&&r.node).map(r=>r.node))].forEach(id=>{ const [x,y]=P(id); g+=`<g><title>Veículo em manutenção</title><circle cx="${x-16}" cy="${y+14}" r="9" fill="var(--crit)" stroke="#fff" stroke-width="1.5" filter="url(#bi-sh)"/><use href="#bi-wrench" x="${x-21.5}" y="${y+8.5}" width="11" height="11" fill="#fff"/></g>`; });
   // caminhões por cidade, em quadros com o número dos containers
   const noMapa=id=>{ const n=NO[id]; return n&&n.ll&&n.ll[1]>=LON0&&n.ll[1]<=LON1&&n.ll[0]<=LAT0&&n.ll[0]>=LAT1; };
-  const porNo={}; rows.filter(r=>r.f&&r.node&&noMapa(r.node)).forEach(r=>{ const k=r.placa||r.cn; const o=(porNo[r.node]=porNo[r.node]||{}); (o[k]=o[k]||[]).push(r); });
+  /* sem placa e ainda não carregado = aguardando veículo no local (ex.: Sada Betim), não é caminhão na estrada */
+  const agNo={}, porNo={}; rows.filter(r=>r.f&&r.node&&noMapa(r.node)).forEach(r=>{ if(!r.placa&&r.carga!=="descarga"&&r.carga!=="entregue"&&!r.f.chegada&&!r.f.inicio){ (agNo[r.node]=agNo[r.node]||[]).push(r); return; } const k=r.placa||r.cn; const o=(porNo[r.node]=porNo[r.node]||{}); (o[k]=o[k]||[]).push(r); });
   const RK={crit:0,warn:1,ok:2,info:3,desc:4,done:5};
   const grupos=Object.entries(porNo).map(([id,veics])=>{ const lista=Object.entries(veics).map(([placa,rs])=>{ const t=rs.map(r=>r.tone).sort((a,b)=>RK[a]-RK[b])[0];
       const all=rs.every(r=>r.carga==="entregue"), desc=rs.every(r=>r.carga==="descarga"||r.carga==="entregue");
       const pior=rs.slice().sort((a,b)=>(b.gap??-1e9)-(a.gap??-1e9))[0];
       return {placa,rs,tone: all?"done": desc&&t!=="crit"?"desc":t, crit:rs.some(r=>r.crit), manut:rs.some(r=>r.manut), gap:pior.gap, gt:pior.tone}; })
       .sort((a,b)=>(RK[a.tone]??5)-(RK[b.tone]??5));
-    const [x,y]=P(id); return {id,x,y,lista,h:24+lista.length*35}; });
+    const [x,y]=P(id); lista.forEach(v=>{ v.lin=Math.ceil(v.rs.length/2); v.hh=35+(v.lin-1)*13; }); return {id,x,y,lista,h:24+lista.reduce((s,v)=>s+v.hh,0)}; });
   const sv=rows.filter(r=>r.carga==="semveic").sort((a,b)=>(RK[a.tone]??5)-(RK[b.tone]??5)||String(a.need).localeCompare(String(b.need)));
   if(sv.length){ const [x,y]=P("rio"); grupos.push({id:"__sv",x,y:y+1,sv:true,lista:sv.map(r=>({placa:"",rs:[r],tone:r.tone,crit:!!r.crit,gap:r.gap,gt:r.tone,sv:true})),h:24+sv.length*35}); }
+  Object.entries(agNo).forEach(([id,rs])=>{ const [x,y]=P(id); rs.sort((a,b)=>(RK[a.tone]??5)-(RK[b.tone]??5)||String(a.need).localeCompare(String(b.need)));
+    const sada=rs.some(r=>/SADA/i.test(r.f.localizacao||"")); grupos.push({id,x,y:y+0.5,sv:true,ag:true,nome:(sada?"Sada ":"")+NO[id].n+" · aguardando veículo",lista:rs.map(r=>({placa:"",rs:[r],tone:r.tone,crit:!!r.crit,gap:r.gap,gt:r.tone,sv:true})),h:24+rs.length*35}); });
   grupos.sort((a,b)=>a.y-b.y);
   const CX=CALL_X, CW=W-CALL_X-10; let fundo=PY-10;
   grupos.forEach(gr=>{ gr.by=Math.max(gr.y-gr.h/2, fundo+8); fundo=gr.by+gr.h; });
@@ -2601,7 +2723,7 @@ function biMapa(rows, now){
     g+=`<path d="M${gr.x+5} ${gr.y} C ${gr.x+40} ${gr.y}, ${CX-40} ${ay}, ${CX} ${ay}" fill="none" stroke="${cor}" stroke-width="1.4" opacity=".75"/><circle cx="${gr.x}" cy="${gr.y}" r="7" fill="none" stroke="${cor}" stroke-width="2"/>`;
     g+=`<rect x="${CX}" y="${gr.by}" width="${CW}" height="${gr.h}" rx="7" fill="var(--surface)" stroke="${cor}" stroke-width="1.4" filter="url(#bi-sh)"/>
        <rect x="${CX}" y="${gr.by}" width="5" height="${gr.h}" rx="2" fill="${cor}"/>
-       <text x="${CX+14}" y="${gr.by+16}" class="bi-gh">${gr.sv?"Sem veículo alocado":esc(NO[gr.id].n)}</text><text x="${CX+CW-10}" y="${gr.by+16}" text-anchor="end" class="bi-gc">${gr.lista.length} ${gr.sv?"container":"veículo"}${gr.lista.length>1?"s":""}</text>`;
+       <text x="${CX+14}" y="${gr.by+16}" class="bi-gh">${gr.ag?esc(gr.nome):gr.sv?"Sem veículo alocado":esc(NO[gr.id].n)}</text><text x="${CX+CW-10}" y="${gr.by+16}" text-anchor="end" class="bi-gc">${(()=>{ if(gr.sv) return gr.lista.length+" container"+(gr.lista.length>1?"s":""); const nv=gr.lista.filter(v=>v.rs[0].f&&v.rs[0].f.placa_cavalo).length, ns=gr.lista.length-nv; return [nv?nv+" veículo"+(nv>1?"s":""):"", ns?ns+" sem placa":""].filter(Boolean).join(" · "); })()}</text>`;
     if(gr.sv){ gr.lista.forEach((v,i)=>{ const ry=gr.by+22+i*35, r=v.rs[0], c=BI_TONE_COR[v.tone]||"var(--info)";
         g+=`<g class="bi-veh bi-sv" data-cnsv="${esc(r.cn)}" tabindex="0" role="button" aria-label="Container ${esc(r.cn)} sem veículo alocado"><title>${esc(r.cn)} · sem veículo alocado · clique para alocar</title>
           <rect x="${CX+7}" y="${ry-1}" width="${CW-12}" height="33" rx="4" fill="transparent"/>
@@ -2610,15 +2732,15 @@ function biMapa(rows, now){
           <text x="${CX+44}" y="${ry+13}" class="bi-cn">${esc(r.cn)}</text>
           <text x="${CX+44}" y="${ry+28}" class="bi-rest">${r.need?"necessidade "+esc(fmt(r.need)):"sem necessidade informada"}${r.crit?" · "+esc(r.crit.toLowerCase()):""}</text>
           <text x="${CX+CW-10}" y="${ry+13}" text-anchor="end" class="bi-gap" style="fill:${v.gt==="info"?"var(--muted)":BI_TONE_COR[v.gt]||"var(--muted)"}">${v.gap!=null?dur(v.gap):"—"}</text></g>`; }); return; }
-    gr.lista.forEach((v,i)=>{ const ry=gr.by+22+i*35, rest=restante(v.rs[0].f,now), c=v.tone==="desc"?"var(--bi-desc)":v.tone==="done"?"var(--muted)":BI_TONE_COR[v.tone], sel=state.bi.sel===v.placa;
+    let acc=0; gr.lista.forEach((v,i)=>{ const ry=gr.by+22+acc; acc+=v.hh||35; const rest=restante(v.rs[0].f,now), c=v.tone==="desc"?"var(--bi-desc)":v.tone==="done"?"var(--muted)":BI_TONE_COR[v.tone], sel=state.bi.sel===v.placa;
       const cns=v.rs.map(r=>r.cn);
       g+=`<g class="bi-veh${sel?" sel":""}" data-placa="${esc(v.placa)}" tabindex="0" role="button" aria-label="Veículo ${esc(v.placa)}, containers ${esc(cns.join(" e "))}"><title>${esc(v.placa)} · ${esc(v.rs.map(r=>`${r.cn} (${BI_SIT[r.tone]}${r.gap!=null?" "+dur(r.gap):""})`).join(", "))}</title>
-        <rect x="${CX+7}" y="${ry-1}" width="${CW-12}" height="33" rx="4" fill="${sel?"var(--surface2)":"transparent"}" ${sel?'stroke="var(--ink)" stroke-width="1.2"':""}/>
+        <rect x="${CX+7}" y="${ry-1}" width="${CW-12}" height="${(v.hh||35)-2}" rx="4" fill="${sel?"var(--surface2)":"transparent"}" ${sel?'stroke="var(--ink)" stroke-width="1.2"':""}/>
         <use href="#bi-truck" x="${CX+12}" y="${ry+1}" width="24" height="15.5" fill="${c}" stroke="#fff" stroke-width="1.1"/>
         ${v.crit?`<circle cx="${CX+36}" cy="${ry+3}" r="4.2" fill="var(--crit)" stroke="#fff" stroke-width="1.1"/><text x="${CX+36}" y="${ry+5.6}" text-anchor="middle" style="font-size:7px;font-weight:800;fill:#fff">!</text>`:""}
-        <text x="${CX+44}" y="${ry+13}" class="bi-cn">${esc(cns.join(" · "))}</text>
+        ${(()=>{ const ln=[]; for(let j=0;j<cns.length;j+=2) ln.push(cns.slice(j,j+2).join(" · ")); return ln.map((t,j)=>`<text x="${CX+44}" y="${ry+13+j*13}" class="bi-cn">${esc(t)}</text>`).join(""); })()}
         ${v.manut?`<g transform="translate(${CX+2} ${ry+13})"><circle cx="7" cy="7" r="7.5" fill="var(--crit)" stroke="#fff" stroke-width="1.2"/><use href="#bi-wrench" x="2.5" y="2.5" width="9" height="9" fill="#fff"/></g>`:""}
-        <text x="${CX+44}" y="${ry+28}" class="bi-rest" ${v.manut?'style="fill:var(--crit);font-weight:700"':""}>${v.manut?esc(manutTxt(v.rs[0].f)):rest?esc(rest.txt):"posição sem distância"}</text>
+        <text x="${CX+44}" y="${ry+28+((v.lin||1)-1)*13}" class="bi-rest" ${v.manut?'style="fill:var(--crit);font-weight:700"':""}>${v.manut?esc(manutTxt(v.rs[0].f)):rest?esc(rest.txt):!v.rs[0].f.placa_cavalo?esc(((v.rs[0].f.status||"").toLowerCase()||"aguardando")+" · sem placa informada"):"posição sem distância"}</text>
         <text x="${CX+CW-10}" y="${ry+13}" text-anchor="end" class="bi-gap" style="fill:${v.gt==="info"?"var(--muted)":BI_TONE_COR[v.gt]||"var(--muted)"}">${v.tone==="done"?"entregue":v.tone==="desc"?"descarga":v.gap!=null?dur(v.gap):"—"}</text></g>`; });
   });
   return `<svg viewBox="0 0 ${W} ${HF}" class="bi-map" role="img" aria-label="Mapa do corredor Rio de Janeiro – Minas Gerais com posição dos veículos, containers e alertas">${g.replace(/__H__/g,HF)}</svg>`;
@@ -2664,7 +2786,7 @@ function renderBI(){
   const critR=rows.filter(r=>r.crit && r.tone!=="ok" && r.carga!=="entregue");
   const alAt=listaAlertas().filter(a=>statusAl(a,now).k==="ativo"), alGr=alAt.filter(a=>a.tipo==="acidente"||a.tipo==="interdicao"||a.sev==="alta");
   const comNeed=rows.filter(r=>r.nd&&r.carga!=="semveic"); const ader=comNeed.length?Math.round(comNeed.filter(r=>r.tone==="ok").length/comNeed.length*100):null;
-  const dias=[...new Set(base.map(r=>dia(r.p&&r.p.necessidade)).filter(Boolean))].sort();
+  const dias=[...new Set(base.map(r=>dia(r.need)).filter(Boolean))].sort();
   const niveis=[...new Set(base.map(r=>r.crit).filter(Boolean))];
   const lista=rows.slice().sort((a,c)=>({crit:0,warn:1,info:2,ok:3}[a.tone]-{crit:0,warn:1,info:2,ok:3}[c.tone])||(!!c.crit-!!a.crit)||String(a.need).localeCompare(String(c.need)));
   el.innerHTML=`
@@ -2688,10 +2810,10 @@ function renderBI(){
     </div>
   </div>
   <div class="bi-kpis">
-    ${(()=>{ const hj=iso(now).slice(0,10), cnA=A(b.cn), crA=A(b.crit), deA=A(b.dest);
-      const hoje=base.filter(r=>r.p&&dia(r.p.necessidade)===hj&&(!cnA.length||cnA.includes(r.cn))&&(!deA.length||deA.includes(r.dest))&&(!crA.length||crA.includes(r.crit)||(r.crit&&crA.includes("__crit__"))||(!r.crit&&crA.includes("__sem__"))));
+    ${(()=>{ const hj=iso(now).slice(0,10), cnA=A(b.cn), crA=A(b.crit), deA=A(b.dest); const dSel=[...new Set(A(b.dia).map(d=>d==="__hoje__"?hj:d))].sort(), dK=dSel.length?dSel:[hj], soHoje=dK.length===1&&dK[0]===hj;
+      const hoje=base.filter(r=>(r.p||b.prog!=="prog")&&dK.includes(dia(r.need))&&(!cnA.length||cnA.includes(r.cn))&&(!deA.length||deA.includes(r.dest))&&(!crA.length||crA.includes(r.crit)||(r.crit&&crA.includes("__crit__"))||(!r.crit&&crA.includes("__sem__"))));
       const c=f=>hoje.filter(f).length, ent=c(r=>r.carga==="entregue"||r.carga==="descarga"), via=c(r=>r.carga==="transito"||r.carga==="porto"), sv=c(r=>r.carga==="semveic"), at=c(r=>r.tone==="crit");
-      return `<div class="bi-k bi-k-hoje" role="button" tabindex="0" id="bi-k-hoje" title="Filtrar os processos com expectativa na planta hoje"><div class="bi-kv">${hoje.length}</div><div class="bi-kt">Processos do dia</div><div class="bi-ks">${kSide(`Na planta <b>${ent}</b><br>Em viagem <b>${via}</b><br>Sem veículo <b>${sv}</b>`)}</div><div class="bi-kx">expectativa na planta ${diaBR(hj).slice(0,5)}${at?` · ${at} atrasado${at>1?"s":""}`:""}</div></div>`; })()}
+      return `<div class="bi-k bi-k-hoje" role="button" tabindex="0" id="bi-k-hoje" title="Filtrar os processos com expectativa na planta hoje"><div class="bi-kv">${hoje.length}</div><div class="bi-kt">${soHoje?"Processos do dia":dK.length===1?"Processos de "+diaBR(dK[0]).slice(0,5):"Processos das datas"}</div><div class="bi-ks">${kSide(`Na planta <b>${ent}</b><br>Em viagem <b>${via}</b><br>Sem veículo <b>${sv}</b>`)}</div><div class="bi-kx">expectativa na planta ${dK.length>4?dK.length+" datas":dK.map(d=>diaBR(d).slice(0,5)).join(", ")}${at?` · ${at} atrasado${at>1?"s":""}`:""}</div></div>`; })()}
     ${k("Em viagem",nT+nP,"",null,`Trânsito <b>${nT}</b><br>No porto <b>${nP}</b>`)}
     ${k("Veículos no mapa",veics.size,"",null,`Descarga <b>${nD}</b><br>Entregues <b>${nE}</b>`)}
     ${k("Atrasados",atr.length,"previsão acima de 2h da necessidade","red")}
@@ -2722,7 +2844,7 @@ function renderBI(){
     </section>
     <section class="bi-panel bi-right">
       <div class="bi-mh"><h3>Posição dos veículos</h3><span class="sub">${veics.size} veículo${veics.size===1?"":"s"}${(()=>{ const n=rows.filter(r=>r.carga==="semveic").length; return n?` · ${n} sem veículo alocado`:""; })()} · corredor BR-040 / BR-381</span></div>
-      <div class="bi-mapbox">${biMapa(rows.filter(r=>r.carga!=="entregue"||A(b.carga).includes("entregue")),now)}${b.sel?biVeiculo(b.sel,rows,now,lead):""}</div>
+      <div class="bi-mapbox">${biMapa(biFiltra(base,"carga").filter(r=>rows.includes(r)||(r.carga==="entregue"&&((r.f&&r.f.chegada&&dia(r.f.chegada)===iso(now).slice(0,10))||A(b.dia).length))).filter(r=>r.carga!=="entregue"||A(b.carga).includes("entregue")||(r.f&&r.f.chegada&&dia(r.f.chegada)===iso(now).slice(0,10))||A(b.dia).length),now)}${b.sel?biVeiculo(b.sel,rows,now,lead):""}</div>
       <div class="note">Distâncias aproximadas pela BR-040/BR-381, a partir da cidade informada no follow até a Iveco (Rio–Sete Lagoas ≈ 508 km). O tempo até a chegada usa a previsão do follow; sem previsão, é estimado pela velocidade média observada nas viagens (≈ ${Math.round(velMedia())} km/h, com paradas).</div>
       <div class="bi-mleg"><span>${truckIcon("crit",22)}Atrasado</span><span>${truckIcon("warn",22)}Em risco</span><span>${truckIcon("ok",22)}No prazo</span><span>${truckIcon("desc",22)}Descarga</span>
         <span><i class="bi-seg" style="background:var(--crit)"></i>Acidente / interdição</span><span><i class="bi-seg" style="background:var(--warn)"></i>Obra / trânsito</span><span><i class="bi-seg dash"></i>Programado</span><span><b class="bi-cr">!</b>Crítico Iveco</span></div>
@@ -3718,11 +3840,11 @@ async function exportar(){
 /* ---------- eventos ---------- */
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
   state.tab=b.dataset.tab; document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected", String(x===b)));
-  ["tab","bi","anim","crit","comp","tl","fora","prog","rod","ind"].forEach(k=>$("#v-"+k).hidden = k!==state.tab);
+  ["tab","fc","bi","anim","crit","comp","tl","fora","prog","rod","ind"].forEach(k=>$("#v-"+k).hidden = k!==state.tab);
   $("#f-sit").hidden = !(state.tab==="comp"||state.tab==="tl");
   $("#w-socrit").hidden = !(state.tab==="comp"||state.tab==="tl"||state.tab==="prog");
   document.querySelector(".legend").hidden = state.tab!=="tl";
-  document.querySelector(".toolbar").hidden = state.tab==="ind"||state.tab==="rod"||state.tab==="bi"||state.tab==="anim"||state.tab==="tab";
+  document.querySelector(".toolbar").hidden = state.tab==="ind"||state.tab==="rod"||state.tab==="bi"||state.tab==="anim"||state.tab==="tab"||state.tab==="fc";
   document.body.classList.toggle("bi-mode", state.tab==="bi");
   try{ localStorage.setItem("iveco.tab",state.tab);}catch(e){}
   render();
@@ -3747,7 +3869,7 @@ render();
   const db = window.claude && window.claude.use ? await window.claude.use("db") : null;
   if(!db){ setConn(false,"Base indisponível nesta visualização"); return; }
   state.db=db; setConn(true,(window.__modoNuvem&&window.__modoNuvem().nuvem)?"Conectando à nuvem…":"Salvo neste aparelho");
-  const sub=(col,key)=>db.collection(col).onSnapshot(s=>{ const m={}; s.docs.forEach(d=>{ const x=d.data(); if(x) m[d.id]=x; }); state[key]=m; render(); }, e=>setConn(false,"Conexão perdida ("+e.code+") · recarregue"));
+  const sub=(col,key)=>db.collection(col).onSnapshot(s=>{ const m={}; s.docs.forEach(d=>{ const x=d.data(); if(x){ if(col==="follow") limpaVazios(x); m[d.id]=x; } }); state[key]=m; render(); }, e=>setConn(false,"Conexão perdida ("+e.code+") · recarregue"));
   sub("prog","prog"); sub("follow","follow"); sub("envios","envios"); sub("alertas","alertas");
   let varreu=false;
   db.collection("cidades").onSnapshot(s=>{ s.docs.forEach(d=>{ const c=d.data(); if(c) registraCidade(c); }); render();
