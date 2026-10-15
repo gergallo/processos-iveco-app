@@ -2617,7 +2617,8 @@ function biLinhas(){
   const now=new Date(), lead=calcInd("tudo").lead;
   const keys=new Set([...Object.keys(state.follow),...Object.keys(state.prog).filter(cn=>progVigente(state.prog[cn]))]);
   return [...keys].map(cn=>{ const p0=state.prog[cn], p=progVigente(p0)?p0:undefined, f=p?followDe(cn):state.follow[cn];
-    const need=(p&&p.necessidade)||(f&&f.data_prog)||null, nd=toD(need);
+    /* programação sem hora (00:00) e follow com hora no mesmo dia → vale a hora do follow */
+    let need=(p&&p.necessidade)||(f&&f.data_prog)||null; if(p&&f&&f.data_prog&&/T00:00/.test(String(p.necessidade||""))&&!/T00:00/.test(String(f.data_prog))&&dia(f.data_prog)===dia(p.necessidade)) need=f.data_prog; const nd=toD(need);
     let carga;
     if(!f) carga="semveic";
     else if(enviarIveco(f)) carga="betim";
