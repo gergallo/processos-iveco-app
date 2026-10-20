@@ -1861,6 +1861,8 @@ function render(){
   const rows = filtra(all, r => [r.p.container, r.f&&r.f.motorista, r.f&&r.f.placa_cavalo, r.f&&r.f.localizacao, r.p.solicitante, r.p.navio].join(" "));
   $("#c-comp").textContent = rows.length;
   renderComp(rows); renderTl(rows); renderFora(); renderProg(); renderInd(); renderCrit(); renderRod(); renderBI(); renderAnim(); renderTab(); renderFC();
+  /* resumo aberto: refaz com os dados novos (se o texto não foi editado) */
+  if(window.__gerAtu){ clearTimeout(window.__gerT); window.__gerT=setTimeout(()=>{ const t=document.querySelector("#g-txt"); if(window.__gerAtu&&!(t&&t.dataset.editado)) window.__gerAtu(); },1500); }
 }
 
 function renderDias(){
@@ -3547,8 +3549,10 @@ function biFiltrosTxt(){
   return out.join(" · ");
 }
 function gerDados(){
-  const now=new Date(), b=state.bi, base=biLinhas(), rows=biFiltra(base);
-  const mapa=rows.filter(r=>r.carga!=="entregue"||A(b.carga).includes("entregue"));
+  const now=new Date(), b=state.bi, base=biLinhas(), hj=iso(now).slice(0,10), op=biFiltra(base);
+  /* mesmos processos do Painel BI: em operação + entregues de hoje (ou das datas filtradas) */
+  const rows=biFiltra(base,"carga").filter(r=>op.includes(r)||(r.carga==="entregue"&&((r.f&&r.f.chegada&&dia(r.f.chegada)===hj)||A(b.dia).length)));
+  const mapa=rows;
   const RK={crit:0,warn:1,info:2,ok:3};
   const lista=rows.slice().sort((a,c)=>(RK[a.tone]-RK[c.tone])||(!!c.crit-!!a.crit)||String(a.need).localeCompare(String(c.need)));
   const cont=(fn)=>{ const m={}; rows.forEach(r=>{ const k=fn(r); m[k]=(m[k]||0)+1; }); return m; };
@@ -3556,7 +3560,7 @@ function gerDados(){
     .map(a=>{ const s=statusAl(a,now); return {titulo:a.titulo, quando:s.t, tom:s.k==="prog"?"info":(a.tipo==="acidente"||a.tipo==="interdicao"||a.sev==="alta")?"crit":"warn"}; });
   const C=biChegadas(biFiltra(base,"carga").filter(r=>r.carga!=="semveic"), now);
   // agrupamento por posição (como no mapa), do mais perto ao mais longe da planta
-  const grupos={}; mapa.filter(r=>r.f).forEach(r=>{ const k=r.node||("?"+lugar(r.f.localizacao)); const g=grupos[k]=grupos[k]||{k, nome:r.node&&NO[r.node]?NO[r.node].n:lugar(r.f.localizacao), veic:{}, km:null};
+  const grupos={}; mapa.filter(r=>r.f).forEach(r=>{ const ag=!r.placa&&r.carga!=="descarga"&&r.carga!=="entregue"&&!r.f.chegada&&!r.f.inicio; const k=(ag?"ag:":"")+(r.node||("?"+lugar(r.f.localizacao))); const nm=r.node&&NO[r.node]?NO[r.node].n:lugar(r.f.localizacao); const g=grupos[k]=grupos[k]||{k, nome:ag?((/SADA/i.test(r.f.localizacao||"")?"Sada ":"")+nm+" · aguardando veículo"):nm, veic:{}, km:null};
     const q=r.f.chegada?null:restante(r.f,now); const kk=r.f.chegada?0:(q&&q.km!=null?q.km:null); if(kk!=null) g.km=g.km==null?kk:Math.min(g.km,kk);
     const v=g.veic[r.placa||r.cn]=g.veic[r.placa||r.cn]||{placa:r.placa, reboque:r.f.placa_reboque||"", rs:[], f:r.f, q}; v.rs.push(r); });
   const posicoes=Object.values(grupos).map(g=>({...g, veic:Object.values(g.veic)})).sort((a,c)=>(a.km==null?1e9:a.km)-(c.km==null?1e9:c.km));
@@ -3788,13 +3792,14 @@ function painelGerente(){
       try{ await dl.save({filename:nome(i), data:await blob(cvs[i])}); return true; }catch(e){ if(e.code!=="declined") msg("Não foi possível salvar ("+e.code+").",false); return false; } };
     { let op={mapa:true,det:true}; try{ op=Object.assign(op,JSON.parse(localStorage.getItem("iveco.gerOp")||"{}")); }catch(e){} el.querySelector("#g-omapa").checked=op.mapa; el.querySelector("#g-odet").checked=op.det;
       ["#g-omapa","#g-odet"].forEach(id=>el.querySelector(id).onchange=()=>{ if(!el.querySelector("#g-omapa").checked&&!el.querySelector("#g-odet").checked){ el.querySelector(id).checked=true; return; } gera(); }); }
-    const gera=async()=>{ d=gerDados(); ta.value=textoGerente(d); link(); const op={mapa:el.querySelector("#g-omapa").checked,det:el.querySelector("#g-odet").checked}; try{ localStorage.setItem("iveco.gerOp",JSON.stringify(op)); }catch(e){} cvs=await desenhaGerente(d,op);
+    const gera=async()=>{ if(!document.body.contains(el)){ if(window.__gerAtu===gera) window.__gerAtu=null; return; } d=gerDados(); ta.value=textoGerente(d); link(); const op={mapa:el.querySelector("#g-omapa").checked,det:el.querySelector("#g-odet").checked}; try{ localStorage.setItem("iveco.gerOp",JSON.stringify(op)); }catch(e){} cvs=await desenhaGerente(d,op);
       box.innerHTML=cvs.map((cv,i)=>`<figure class="ger-pg"><figcaption><b>${cvs.length>1?(i+1)+" · ":""}${esc(cv.tit||"Resumo")}</b><span><button class="btn sm" type="button" data-cp="${i}">Copiar</button> <button class="btn sm" type="button" data-dl="${i}">Baixar</button></span></figcaption><img src="${cv.toDataURL("image/png")}" alt="${esc(cv.tit||"Resumo")}"></figure>`).join(""); seqCp=0; atualizaCp(); el.querySelector("#g-png").textContent=cvs.length>1?`Baixar as ${cvs.length} imagens`:"Baixar imagem"; el.querySelector("#g-share").textContent=cvs.length>1?"Compartilhar as 2 imagens":"Compartilhar imagem";
       box.querySelectorAll("[data-cp]").forEach(b=>b.onclick=()=>{ const i=+b.dataset.cp; copiar(i); if(cvs.length>1) setTimeout(()=>msg(`Imagem ${i+1} (${cvs[i].tit}) copiada. Cole no WhatsApp (Ctrl+V).`,true),150); });
       box.querySelectorAll("[data-dl]").forEach(b=>b.onclick=async()=>{ if(await baixar(+b.dataset.dl)) msg("Imagem salva.",true); });
       
       try{ const fs=await arquivos(); el.querySelector("#g-share").hidden=!(navigator.canShare&&navigator.canShare({files:fs})); }catch(e){} };
     ta.oninput=link; fo.oninput=()=>{ link(); try{ localStorage.setItem("iveco.gerenteFone",fo.value); }catch(e){} };
+    window.__gerAtu=gera; ta.addEventListener("input",()=>{ ta.dataset.editado="1"; });
     el.querySelector("#g-x").onclick=closePanel;
     let seqCp=0; const atualizaCp=()=>{ const b=el.querySelector("#g-cimg"); if(!b) return; b.textContent=cvs.length>1?`Copiar imagem ${seqCp+1} de ${cvs.length}`:"Copiar imagem"; };
     el.querySelector("#g-cimg").onclick=()=>{ const i=seqCp; copiar(i); if(cvs.length>1){ seqCp=(seqCp+1)%cvs.length; atualizaCp(); setTimeout(()=>msg(i===0?`Imagem 1 (${cvs[0].tit}) copiada. Cole no WhatsApp (Ctrl+V) e clique de novo para copiar a imagem 2.`:`Imagem 2 (${cvs[1].tit}) copiada. Cole no WhatsApp (Ctrl+V).`,true),150); } };
@@ -3803,7 +3808,7 @@ function painelGerente(){
         await dl.save({filename:nome(0).replace(/\.png$/,".pdf"),data:new Uint8Array(buf)}); msg("PDF salvo. No WhatsApp, anexe como Documento.",true); }
       catch(e){ if(e&&e.code==="declined"){} else msg("Não foi possível gerar o PDF ("+((e&&(e.code||e.message))||"erro")+").",false); }
       finally{ bt.disabled=false; bt.textContent=old; } };
-    el.querySelector("#g-ref").onclick=async()=>{ await gera(); msg("Resumo atualizado com os dados de agora.",true); };
+    el.querySelector("#g-ref").onclick=async()=>{ delete ta.dataset.editado; await gera(); msg("Resumo atualizado com os dados de agora.",true); };
     el.querySelector("#g-png").onclick=async()=>{ let n=0; for(let i=0;i<cvs.length;i++){ if(await baixar(i)) n++; else break; } if(n) msg(`${n} imagem${n>1?"ns":""} salva${n>1?"s":""}. Anexe na conversa do WhatsApp com o gerente.`,true); };
     el.querySelector("#g-share").onclick=async()=>{ try{ await navigator.share({files:await arquivos(), text:ta.value}); }catch(e){ if(e.name!=="AbortError") msg("Não foi possível compartilhar daqui. Use Copiar ou Baixar.",false); } };
     el.querySelector("#g-ctxt").onclick=()=>navigator.clipboard.writeText(ta.value).then(()=>msg("Texto copiado. Cole na conversa do WhatsApp.",true),()=>msg("Não foi possível copiar o texto.",false));
