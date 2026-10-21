@@ -1071,7 +1071,7 @@ function a3Sirene(){ const g=new THREE.Group(); const base=new THREE.Mesh(new TH
   const cone=new THREE.Mesh(new THREE.ConeGeometry(1.1,4,20,1,true),new THREE.MeshBasicMaterial({color:0xff3020,transparent:true,opacity:.14,side:THREE.DoubleSide,depthWrite:false})); cone.rotation.z=Math.PI/2; cone.position.x=2; const cg=new THREE.Group(); cg.add(cone); cg.position.y=.4; g.add(cg);
   g.userData={rot,cg,cup}; return g; }
 function a3Exclam(){ const g=new THREE.Group(), m=new THREE.MeshStandardMaterial({color:0xF2A11A,emissive:0xE08A12,emissiveIntensity:.6,roughness:.3});
-  const bar=new THREE.Mesh(new THREE.CapsuleGeometry?new THREE.CapsuleGeometry(.28,1.3,6,14):new THREE.CylinderGeometry(.32,.2,1.8,20),m); bar.position.y=1.5; g.add(bar); const dot=new THREE.Mesh(new THREE.SphereGeometry(.3,18,12),m); dot.position.y=.2; g.add(dot);
+  const bar=new THREE.Mesh(THREE.CapsuleGeometry?new THREE.CapsuleGeometry(.28,1.3,6,14):new THREE.CylinderGeometry(.32,.2,1.8,20),m); bar.position.y=1.5; g.add(bar); const dot=new THREE.Mesh(new THREE.SphereGeometry(.3,18,12),m); dot.position.y=.2; g.add(dot);
   const ring=new THREE.Mesh(new THREE.TorusGeometry(1.4,.08,10,48),new THREE.MeshBasicMaterial({color:0xF2A11A,transparent:true,opacity:.7})); ring.rotation.x=Math.PI/2; ring.position.y=-.4; g.add(ring); g.userData={ring}; return g; }
 function a3Joinha(){ const g=new THREE.Group(); const s=a3Emoji("👍",3.2); g.add(s); const ring=new THREE.Mesh(new THREE.TorusGeometry(1.5,.08,10,48),new THREE.MeshBasicMaterial({color:0x1C9F56,transparent:true,opacity:.8})); ring.rotation.x=Math.PI/2; ring.position.y=-1.6; g.add(ring); g.userData={s,ring}; return g; }
 /* socorro e obras */
@@ -1664,10 +1664,19 @@ async function a3ClimaBusca(){ const ids=A3_CLIMA_CID.filter(id=>NO[id]&&NO[id].
     const out={}; ids.forEach((id,i)=>{ const c=j[i]&&j[i].current; if(!c) return; out[id]={tipo:a3WMO(c.weather_code,c.wind_speed_10m),temp:Math.round(c.temperature_2m),vento:Math.round(c.wind_speed_10m),chuva:c.precipitation,fonte:"auto"}; });
     return {cid:out,em:iso(new Date()),fonte:"Open-Meteo"}; }catch(e){ clearTimeout(to); return null; } }
 async function a3ClimaCarrega(forcar){
-  const man=(A3.climaDb&&A3.climaDb.cid)||{};
-  if(forcar||!A3.climaAuto||Date.now()-A3.climaAutoT>20*60000){ const a=await a3ClimaBusca(); if(a){ A3.climaAuto=a; A3.climaAutoT=Date.now(); A3.climaStatus="auto"; } else if(!A3.climaAuto) A3.climaStatus="sem"; }
+  const man=(A3.climaDb&&A3.climaDb.cid)||{}, agora=Date.now();
+  const venceu=!A3.climaAuto||agora-A3.climaAutoT>15*60000, retenta=!A3.climaFalhaT||agora-A3.climaFalhaT>2*60000;
+  if(forcar||(venceu&&retenta)){ if(A3.climaBuscando) return; A3.climaBuscando=true; let a=null; try{ a=await a3ClimaBusca(); }finally{ A3.climaBuscando=false; }
+    if(a){ A3.climaAuto=a; A3.climaAutoT=agora; A3.climaStatus="auto"; A3.climaFalhaT=0;
+      /* compartilha a leitura: quem estiver numa rede sem acesso ao serviço usa a última leitura salva */
+      const da=A3.climaDb&&A3.climaDb.auto; if(state.db&&(!da||agora-new Date(da.em).getTime()>10*60000)){ try{ await state.db.doc("meta/clima").set(Object.assign({},A3.climaDb||{},{auto:a})); }catch(e){} } }
+    else { A3.climaFalhaT=agora; const da=A3.climaDb&&A3.climaDb.auto;
+      if(da&&da.cid&&agora-new Date(da.em).getTime()<3*3600000){ A3.climaAuto=da; A3.climaAutoT=new Date(da.em).getTime(); A3.climaStatus="salvo"; }
+      else if(!A3.climaAuto) A3.climaStatus="sem"; } }
   const cid={}; A3_CLIMA_CID.forEach(id=>{ const m=man[id], a=A3.climaAuto&&A3.climaAuto.cid[id]; cid[id]=m&&m.fixo?m:(a||m||null); });
   A3.clima=cid; if(A3.ok) a3ClimaCena(); a3ClimaHud(); }
+/* atualização automática do clima: confere a cada minuto, busca de novo a cada 15 min (ou 2 min se falhou) */
+setInterval(()=>{ if(A3.clima!==undefined||A3.climaStatus) a3ClimaCarrega(false); },60000);
 function a3ClimaDb(){ if(!state.db||A3.climaSub) return; try{ A3.climaSub=state.db.doc("meta/clima").onSnapshot(s=>{ A3.climaDb=s.exists?s.data():null; a3ClimaCarrega(false); },()=>{}); }catch(e){ A3.climaSub=true; } }
 /* texturas */
 function a3TexGota(){ return A3.texGota||(A3.texGota=a3Tex(8,64,(x,w,h)=>{ const g=x.createLinearGradient(0,0,0,h); g.addColorStop(0,"rgba(200,220,255,0)"); g.addColorStop(1,"rgba(210,230,255,.9)"); x.fillStyle=g; x.fillRect(2,0,4,h); })); }
@@ -1716,7 +1725,7 @@ function a3Trovao(){ try{ const ctx=(A3.audioNodes&&A3.audioNodes.ctx)||new (win
 /* painel de clima (legenda + edição manual) */
 function a3ClimaHud(){ const el=document.getElementById("a3-clima"); if(!el) return; const C=A3.clima||{};
   const lst=A3_CLIMA_CID.filter(id=>C[id]).map(id=>{ const c=C[id], [em]=A3_TIPOS[c.tipo]||["❔"]; return `<span class="a3-cl" title="${esc((A3_TIPOS[c.tipo]||[,""])[1])}${c.vento!=null?" · vento "+c.vento+" km/h":""}">${em} <b>${esc(NO[id].n.split(" /")[0])}</b> ${c.temp!=null?c.temp+"°":""}</span>`; }).join("");
-  const st=A3.climaStatus==="auto"?`Tempo real (Open-Meteo) · ${A3.climaAuto?fmt(A3.climaAuto.em):""}`:A3.climaStatus==="sem"?"Sem acesso ao serviço de clima — use ✎ Ajustar para informar":"Carregando clima…";
+  const st=A3.climaStatus==="auto"?`Tempo real (Open-Meteo) · atualizado ${A3.climaAuto?fmt(A3.climaAuto.em).slice(-5):""} · renova a cada 15 min`:A3.climaStatus==="salvo"?`Última leitura salva (Open-Meteo) · ${A3.climaAuto?fmt(A3.climaAuto.em):""}`:A3.climaStatus==="sem"?(window.CONFIG_NUVEM?"Sem acesso ao serviço de clima nesta rede — tentando de novo a cada 2 min · ✎ Ajustar para informar":"O painel do Claude não acessa a internet — o clima ao vivo funciona no site · ✎ Ajustar para informar"):"Carregando clima…";
   el.innerHTML=`<span class="a3-cls">🌦 ${st}</span>${lst}<span style="flex:1"></span><button class="btn sm" type="button" id="a3-clr">↻ Atualizar</button><button class="btn sm" type="button" id="a3-cle">✎ Ajustar</button><button class="btn sm" type="button" id="a3-clo" aria-pressed="${!A3.climaOff}">${A3.climaOff?"Mostrar clima":"Ocultar clima"}</button><button class="btn sm${A3.todosNum?" pri":""}" type="button" id="a3-cln" aria-pressed="${!!A3.todosNum}">${A3.todosNum?"Ocultar nº containers":"Mostrar nº containers"}</button>`;
   el.querySelector("#a3-clr").onclick=()=>{ A3.climaStatus=null; a3ClimaHud(); a3ClimaCarrega(true); };
   el.querySelector("#a3-clo").onclick=()=>{ A3.climaOff=!A3.climaOff; if(A3.ok) a3ClimaCena(); a3ClimaHud(); };
