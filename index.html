@@ -1048,7 +1048,13 @@ function a3Veiculo(v){
   const reb=()=>{ const r=new THREE.Group(); return r; };
   if(tipo==="truck"){ ws=a3Cab(T,true); const b=a3Box(2.5,2.7,6.6,a3Mat(0xEDEFF1,{roughness:.6}),.12); b.position.set(0,2.8,-4.6); T.add(b); wb=6.15; }
   else { ws=a3Cab(T);
-    if(tipo==="bitrem"||tipo==="rodotrem"){
+    if(tipo==="bitrem"&&t40){ /* bitrem 9 eixos: duas carretas de 3 eixos, cada uma com um container de 40' */
+      const r1=reb(); ws=ws.concat(a3Esqueleto(r1,.85,12.6,3)); const c1=a3Container(cn(0),12.1,v.cns[0],armadorDe(v.cns[0])); c1.position.set(0,1.57,-5.45); r1.add(c1);
+      const H=12.6; const ext=a3Box(1.1,.3,1.05,A3.mChassi,.05); ext.position.set(0,1.3,-12.1); r1.add(ext);
+      const qr=a3Box(1.2,.14,1.2,a3Mat(0x1a1d20,{metalness:.6}),.05); qr.position.set(0,1.22,-H); r1.add(qr);
+      const r2=reb(); ws=ws.concat(a3Esqueleto(r2,.85,12.6,3)); const c2=a3Container(cn(1),12.1,v.cns[1],armadorDe(v.cns[1])); c2.position.set(0,1.57,-5.45); r2.add(c2);
+      rebs=[{obj:r1,D:9.45,H},{obj:r2,D:9.45,H:0}]; conts=[c1,c2]; }
+    else if(tipo==="bitrem"||tipo==="rodotrem"){
       const r1=reb(); ws=ws.concat(a3Esqueleto(r1,.85,7.6,2)); const c1=a3Container(cn(0),6.05,v.cns[0],armadorDe(v.cns[0])); c1.position.set(0,1.57,-2.95); r1.add(c1);
       const H=tipo==="rodotrem"?9.0:7.4; const ext=a3Box(1.1,.3,H-6.2,A3.mChassi,.05); ext.position.set(0,1.3,-6.75-(H-6.75)/2); r1.add(ext);
       const qr=a3Box(1.2,.14,1.2,a3Mat(0x1a1d20,{metalness:.6}),.05); qr.position.set(0,1.22,-H); r1.add(qr);
@@ -1432,7 +1438,7 @@ function a3Dados(){
     const est = r0.manut?"manut" : rs.every(r=>r.carga==="entregue")?"done" : emDoca?"desc" : rs.some(r=>r.carga==="descarga")?"patio" : r0.tone;
     const mov = !r0.manut && (r0.carga==="transito");
     const sitTxt = r0.tone==="info"&&!r0.manut&&est==="info"?"Sem necessidade informada":r0.manut?"Em manutenção":est==="done"?"Entregue hoje · no pátio da "+(r0.dest==="Betim"?"Sada Betim":"Iveco 7 Lagoas"):est==="desc"?"Descarregando na doca · "+(r0.dest==="Betim"?"Sada Betim":"Iveco 7 Lagoas"):est==="patio"?"Chegou · aguardando descarga no pátio da "+(r0.dest==="Betim"?"Sada Betim":"Iveco 7 Lagoas"):r0.carga==="porto"?"No porto · "+BI_SIT[r0.tone]:BI_SIT[r0.tone]+(r0.gap!=null?" "+dur(r0.gap):"");
-    return {placa:pl, rs, cns:rs.map(r=>r.cn), f, node:r0.node, dest:r0.dest, carga:r0.carga, est, mov, tone:r0.tone, tipo:a3Tipo(rs.find(r=>r.p)&&rs.find(r=>r.p).p), tam:((rs.find(r=>r.p)||{}).p||{}).tipo_veiculo||"", q, crit:rs.some(r=>r.crit), sitTxt}; });
+    return {placa:pl, rs, cns:rs.map(r=>r.cn), f, node:r0.node, dest:r0.dest, carga:r0.carga, est, mov, tone:r0.tone, tipo:(()=>{ const t=a3Tipo(rs.find(r=>r.p)&&rs.find(r=>r.p).p); return rs.length>=2&&t!=="rodotrem"&&t!=="truck"?"bitrem":t; })(), tam:((rs.find(r=>r.p)||{}).p||{}).tipo_veiculo||"", q, crit:rs.some(r=>r.crit), sitTxt}; });
   return {vs, sv};
 }
 function a3PontoNo(id){ const n=NO[id]; if(!n||!n.ll) return null; const p=a3XZ(n.ll); let best=null;
