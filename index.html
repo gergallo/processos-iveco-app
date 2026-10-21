@@ -766,7 +766,7 @@ function tbLinhas(){ const now=new Date(), L=[];
 function renderTab(){
   { const tbar=document.querySelector(".toolbar"); if(tbar&&state.tab==="tab") tbar.hidden=true; }
   const el=$("#v-tab"); if(!el||el.hidden) return; tbSub();
-  const L=tbLinhas(), hoje=iso(new Date()).slice(0,10), diasAll=[...new Set(L.map(r=>r.dia).filter(Boolean))].sort();
+  const L=tbLinhas(), hoje=iso(new Date()).slice(0,10), diasAll=[...new Set(L.map(r=>r.dia).filter(Boolean))].sort().reverse();
   if(TB.dias===null) TB.dias=diasAll.includes(hoje)?[hoje]:[];
   const sel=new Set(TB.dias), q=TB.q.trim().toUpperCase();
   const nExc=L.filter(r=>TB.exc[r.cn]).length; if(TB.verExc&&!nExc) TB.verExc=false;
@@ -848,7 +848,7 @@ function renderFC(){
   if(FC.ord){ const c=FC_COLS.find(x=>x.k===FC.ord.k); if(c){ const v=r=>c.dt?String(r[c.k]||"9999"):fcTxt(r,c).toUpperCase(); rows.sort((a,b)=>(v(a)<v(b)?-1:v(a)>v(b)?1:0)*FC.ord.d); } }
   const nF=Object.keys(FC.filt).length, uf=state.meta.ultimoFollow;
   const pop=k=>{ const c=FC_COLS.find(x=>x.k===k); const base=fcAplica(L,k), cont={}; base.forEach(r=>{ const t=fcTxt(r,c); cont[t]=(cont[t]||0)+1; });
-    const vals=Object.keys(cont).sort((a,b)=>c.dt?a.split(" ")[0].split("/").reverse().join("").concat(a.split(" ")[1]||"").localeCompare(b.split(" ")[0].split("/").reverse().join("").concat(b.split(" ")[1]||"")):a.localeCompare(b,"pt-BR"));
+    const vals=Object.keys(cont).sort((a,b)=>c.dt?-1*a.split(" ")[0].split("/").reverse().join("").concat(a.split(" ")[1]||"").localeCompare(b.split(" ")[0].split("/").reverse().join("").concat(b.split(" ")[1]||"")):a.localeCompare(b,"pt-BR"));
     const sel=FC.filt[k]; const q=norm(FC.oq||"");
     return `<div class="fc-pop" id="fc-pop" role="dialog" aria-label="Filtro ${esc(c.t)}">
       <button type="button" class="fc-po" data-so="1">↑ Classificar de A a Z${c.dt?" (mais antiga)":""}</button>
@@ -2804,7 +2804,7 @@ function renderBI(){
   const critR=rows.filter(r=>r.crit && r.tone!=="ok" && r.carga!=="entregue");
   const alAt=listaAlertas().filter(a=>statusAl(a,now).k==="ativo"), alGr=alAt.filter(a=>a.tipo==="acidente"||a.tipo==="interdicao"||a.sev==="alta");
   const comNeed=rows.filter(r=>r.nd&&r.carga!=="semveic"); const ader=comNeed.length?Math.round(comNeed.filter(r=>r.tone==="ok").length/comNeed.length*100):null;
-  const dias=[...new Set(base.map(r=>dia(r.need)).filter(Boolean))].sort();
+  const dias=[...new Set(base.map(r=>dia(r.need)).filter(Boolean))].sort().reverse();
   const niveis=[...new Set(base.map(r=>r.crit).filter(Boolean))];
   const lista=rows.slice().sort((a,c)=>({crit:0,warn:1,info:2,ok:3}[a.tone]-{crit:0,warn:1,info:2,ok:3}[c.tone])||(!!c.crit-!!a.crit)||String(a.need).localeCompare(String(c.need)));
   el.innerHTML=`

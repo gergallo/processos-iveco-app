@@ -1,6 +1,6 @@
 // Controle Processos Iveco — permite abrir o app sem internet.
 // Ao publicar uma nova versão, aumente o número abaixo (v1 → v2) para os aparelhos atualizarem.
-const VERSAO = "controle-iveco-v31";
+const VERSAO = "controle-iveco-v32";
 const ARQUIVOS = ["config.js", "supabase.js", "./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png",
   "three.min.js", "OrbitControls.js", "xlsx.full.min.js", "jspdf.umd.min.js"];
 
