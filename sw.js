@@ -1,6 +1,6 @@
 // Controle Processos Iveco — funcionamento offline e instalação como aplicativo.
 // A cada publicação de nova versão, aumente o número abaixo para os aparelhos atualizarem.
-const VERSAO = "controle-iveco-v38";
+const VERSAO = "controle-iveco-v39";
 const ARQUIVOS = ["./", "index.html", "estilos.css", "app-shell.css", "shell.js", "config.js", "servicos.js", "app.js", "instalacao.js",
   "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png",
   "supabase.js", "three.min.js", "OrbitControls.js", "xlsx.full.min.js", "jspdf.umd.min.js"];

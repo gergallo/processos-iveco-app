@@ -1984,7 +1984,7 @@ function truckSym(){ return `<symbol id="bi-wrench" viewBox="0 0 24 24"><path d=
 function truckIcon(tone,size){ const c=tone==="desc"?"var(--bi-desc)":tone==="done"?"var(--muted)":BI_TONE_COR[tone]||"var(--info)"; return `<svg class="bi-tk" width="${size||26}" height="${Math.round((size||26)*22/34)}" viewBox="0 0 34 22" aria-hidden="true"><use href="#bi-truck" fill="${c}" stroke="#fff" stroke-width="1.1"/></svg>`; }
 const LON0=-44.45, LON1=-42.95, LAT0=-19.3, LAT1=-23.0;
 function biMapa(rows, now, vert){
-  const W=vert?480:840, H=vert?760:800, PX=120, PY=30, K=Math.cos(21*Math.PI/180), CALL_X=430; let HF=H;
+  const W=vert?740:840, H=800, PX=120, PY=30, K=Math.cos(21*Math.PI/180), CALL_X=430; let HF=H;
   const s=(H-PY*2)/(LAT0-LAT1);
   const X=lon=>PX+(lon-LON0)*K*s, Y=lat=>PY+(LAT0-lat)*s;
   const P=id=>[X(NO[id].ll[1]),Y(NO[id].ll[0])];
@@ -2036,20 +2036,17 @@ function biMapa(rows, now, vert){
   const sv=rows.filter(r=>r.carga==="semveic").sort((a,b)=>(RK[a.tone]??5)-(RK[b.tone]??5)||String(a.need).localeCompare(String(b.need)));
   if(sv.length){ const [x,y]=P("rio"); grupos.push({id:"__sv",x,y:y+1,sv:true,lista:sv.map(r=>({placa:"",rs:[r],tone:r.tone,crit:!!r.crit,gap:r.gap,gt:r.tone,sv:true})),h:24+sv.length*35}); }
   Object.entries(agNo).forEach(([id,rs])=>{ const [x,y]=P(id); rs.sort((a,b)=>(RK[a.tone]??5)-(RK[b.tone]??5)||String(a.need).localeCompare(String(b.need)));
-    const sada=rs.some(r=>/SADA/i.test(r.f.localizacao||"")); grupos.push({id,x,y:y+0.5,sv:true,ag:true,nome:(sada?"Sada ":"")+NO[id].n+" · aguardando veículo",lista:rs.map(r=>({placa:"",rs:[r],tone:r.tone,crit:!!r.crit,gap:r.gap,gt:r.tone,sv:true})),h:24+rs.length*35}); });
+    const sada=rs.some(r=>/SADA/i.test(r.f.localizacao||"")); grupos.push({id,x,y:y+0.5,sv:true,ag:true,nome:(sada?"Sada ":"")+NO[id].n+(vert?" · aguardando":" · aguardando veículo"),lista:rs.map(r=>({placa:"",rs:[r],tone:r.tone,crit:!!r.crit,gap:r.gap,gt:r.tone,sv:true})),h:24+rs.length*35}); });
   grupos.sort((a,b)=>a.y-b.y);
-  const CX=vert?12:CALL_X, CW=vert?W-24:W-CALL_X-10; let fundo=vert?H-4:PY-10;
-  grupos.forEach(gr=>{ gr.by=vert?fundo+12:Math.max(gr.y-gr.h/2, fundo+8); fundo=gr.by+gr.h; });
-  const nBadge={};
+  const CX=CALL_X, CW=W-CALL_X-10; let fundo=PY-10;
+  grupos.forEach(gr=>{ gr.by=Math.max(gr.y-gr.h/2, fundo+8); fundo=gr.by+gr.h; });
   HF=Math.max(H, fundo+PY);
   grupos.forEach((gr,gi)=>{ const t=gr.lista[0].tone, cor=gr.sv?"var(--info)":t==="desc"?"var(--bi-desc)":t==="done"?"var(--muted)":BI_TONE_COR[t];
     const ay=Math.min(Math.max(gr.y, gr.by+10), gr.by+gr.h-10);
-    if(vert){ const kb=gr.id, k=nBadge[kb]=(nBadge[kb]||0)+1, bx=gr.x+16+(k-1)*23, by=gr.y-15;
-      g+=`<circle cx="${gr.x}" cy="${gr.y}" r="8" fill="none" stroke="${cor}" stroke-width="2.2"/><circle cx="${bx}" cy="${by}" r="10" fill="${cor}" stroke="#fff" stroke-width="1.6"/><text x="${bx}" y="${by+4}" text-anchor="middle" style="font:700 11px var(--f-ui);fill:#fff">${gi+1}</text>`; }
-    else g+=`<path d="M${gr.x+5} ${gr.y} C ${gr.x+40} ${gr.y}, ${CX-40} ${ay}, ${CX} ${ay}" fill="none" stroke="${cor}" stroke-width="1.4" opacity=".75"/><circle cx="${gr.x}" cy="${gr.y}" r="7" fill="none" stroke="${cor}" stroke-width="2"/>`;
+    g+=`<path d="M${gr.x+5} ${gr.y} C ${gr.x+40} ${gr.y}, ${CX-40} ${ay}, ${CX} ${ay}" fill="none" stroke="${cor}" stroke-width="1.4" opacity=".75"/><circle cx="${gr.x}" cy="${gr.y}" r="7" fill="none" stroke="${cor}" stroke-width="2"/>`;
     g+=`<rect x="${CX}" y="${gr.by}" width="${CW}" height="${gr.h}" rx="7" fill="var(--surface)" stroke="${cor}" stroke-width="1.4" filter="url(#bi-sh)"/>
        <rect x="${CX}" y="${gr.by}" width="5" height="${gr.h}" rx="2" fill="${cor}"/>
-       <text x="${CX+14}" y="${gr.by+16}" class="bi-gh">${vert?(gi+1)+" · ":""}${gr.ag?esc(gr.nome):gr.sv?"Sem veículo alocado":esc(NO[gr.id].n)}</text><text x="${CX+CW-10}" y="${gr.by+16}" text-anchor="end" class="bi-gc">${(()=>{ if(gr.sv) return gr.lista.length+" container"+(gr.lista.length>1?"s":""); const nv=gr.lista.filter(v=>v.rs[0].f&&v.rs[0].f.placa_cavalo).length, ns=gr.lista.length-nv; return [nv?nv+" veículo"+(nv>1?"s":""):"", ns?ns+" sem placa":""].filter(Boolean).join(" · "); })()}</text>`;
+       <text x="${CX+14}" y="${gr.by+16}" class="bi-gh">${gr.ag?esc(gr.nome):gr.sv?"Sem veículo alocado":esc(NO[gr.id].n)}</text><text x="${CX+CW-10}" y="${gr.by+16}" text-anchor="end" class="bi-gc">${(()=>{ if(gr.sv) return gr.lista.length+" container"+(gr.lista.length>1?"s":""); const nv=gr.lista.filter(v=>v.rs[0].f&&v.rs[0].f.placa_cavalo).length, ns=gr.lista.length-nv; return [nv?nv+" veículo"+(nv>1?"s":""):"", ns?ns+" sem placa":""].filter(Boolean).join(" · "); })()}</text>`;
     if(gr.sv){ gr.lista.forEach((v,i)=>{ const ry=gr.by+22+i*35, r=v.rs[0], c=BI_TONE_COR[v.tone]||"var(--info)";
         g+=`<g class="bi-veh bi-sv" data-cnsv="${esc(r.cn)}" tabindex="0" role="button" aria-label="Container ${esc(r.cn)} sem veículo alocado"><title>${esc(r.cn)} · sem veículo alocado · clique para alocar</title>
           <rect x="${CX+7}" y="${ry-1}" width="${CW-12}" height="33" rx="4" fill="transparent"/>
