@@ -2775,42 +2775,94 @@ function htmlResumo(comDesvio){
   return h+`</table><div style="font-size:11px;color:#5F6F7B;margin-top:8px">Informações do monitoramento de hora em hora. Horários sujeitos a alteração conforme trânsito, carregamento e descarga.</div></div>`;
 }
 
+/* ---------- resumo para o cliente: imagem do mapa "Posição dos veículos" (WhatsApp) ---------- */
+function resumoMapaDados(sel){
+  const b=state.bi, guarda=b.dia;
+  if(sel!=="bi") b.dia = sel==="todas" ? [] : [sel];
+  try{
+    const now=new Date(), hj=iso(now).slice(0,10), base=biLinhas(), rows=biFiltra(base);
+    const mapa=biFiltra(base,"carga").filter(r=>rows.includes(r)||(r.carga==="entregue"&&((r.f&&r.f.chegada&&dia(r.f.chegada)===hj)||A(b.dia).length)))
+      .filter(r=>r.carga!=="entregue"||A(b.carga).includes("entregue")||(r.f&&r.f.chegada&&dia(r.f.chegada)===hj)||A(b.dia).length);
+    const veics=new Set(mapa.filter(r=>r.f&&r.node&&r.carga!=="entregue").map(r=>r.placa)).size;
+    const semV=mapa.filter(r=>r.carga==="semveic").length;
+    const filtro = sel==="bi" ? (biFiltrosTxt()||"Todas as datas") : sel==="todas" ? "Todas as datas" : "Expectativa na planta "+diaBR(sel==="__hoje__"?hj:sel);
+    return {now, svg:biMapa(mapa,now), veics, semV, n:mapa.length, filtro};
+  } finally { b.dia=guarda; }
+}
+async function resumoMapaImagem(sel){
+  const d=resumoMapaDados(sel), root=document.documentElement, tema=root.dataset.theme;
+  root.dataset.theme="light";
+  const box=document.createElement("div"); box.className="bi-mapbox";
+  box.style.cssText="position:fixed;left:-20000px;top:0;width:900px;pointer-events:none";
+  box.innerHTML=d.svg; document.body.appendChild(box);
+  let url=null;
+  try{
+    const svg=box.querySelector("svg"), vb=(svg.getAttribute("viewBox")||"0 0 840 800").split(/[\s,]+/).map(Number);
+    const PROPS=["fill","fill-opacity","stroke","stroke-width","stroke-dasharray","stroke-linecap","stroke-linejoin","stroke-opacity","opacity","font-family","font-size","font-weight","font-style","letter-spacing","text-anchor","dominant-baseline","paint-order","filter"];
+    const cl=svg.cloneNode(true), orig=[svg,...svg.querySelectorAll("*")], copia=[cl,...cl.querySelectorAll("*")];
+    orig.forEach((o,i)=>{ if(o.closest("defs")) return; const cs=getComputedStyle(o); copia[i].setAttribute("style",PROPS.map(p=>p+":"+cs.getPropertyValue(p)).join(";")); });
+    cl.setAttribute("xmlns","http://www.w3.org/2000/svg"); cl.setAttribute("width",vb[2]); cl.setAttribute("height",vb[3]);
+    const rs=getComputedStyle(root);
+    let txt=new XMLSerializer().serializeToString(cl).replace(/var\((--[\w-]+)\)/g,(m,v)=>rs.getPropertyValue(v).trim()||"#888");
+    url=URL.createObjectURL(new Blob([txt],{type:"image/svg+xml"}));
+    const img=new Image(); await new Promise((ok,er)=>{ img.onload=ok; img.onerror=er; img.src=url; });
+    const S=2, PAD=28, HEAD=92, LEG=56, W=vb[2]+PAD*2, H=HEAD+vb[3]+LEG+PAD;
+    const cv=document.createElement("canvas"); cv.width=W*S; cv.height=H*S; const c=cv.getContext("2d"); c.scale(S,S);
+    const F="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif";
+    c.fillStyle="#FFFFFF"; c.fillRect(0,0,W,H);
+    c.fillStyle="#0F1B24"; c.fillRect(0,0,W,6);
+    c.fillStyle="#13202A"; c.font=`700 24px ${F}`; c.fillText("Posição dos veículos · Iveco",PAD,46);
+    c.fillStyle="#5A6A77"; c.font=`500 14px ${F}`;
+    c.fillText(`${d.filtro} · ${d.veics} veículo${d.veics===1?"":"s"}${d.semV?` · ${d.semV} sem veículo alocado`:""} · atualizado ${fmt(iso(d.now))}`,PAD,72);
+    c.save(); c.beginPath(); c.roundRect?c.roundRect(PAD,HEAD,vb[2],vb[3],10):c.rect(PAD,HEAD,vb[2],vb[3]); c.clip(); c.drawImage(img,PAD,HEAD,vb[2],vb[3]); c.restore();
+    c.strokeStyle="#D6DEE4"; c.lineWidth=1; c.beginPath(); c.roundRect?c.roundRect(PAD+.5,HEAD+.5,vb[2]-1,vb[3]-1,10):c.rect(PAD,HEAD,vb[2],vb[3]); c.stroke();
+    const leg=[["Atrasado",rs.getPropertyValue("--crit")],["Em risco",rs.getPropertyValue("--warn")],["No prazo",rs.getPropertyValue("--ok")],["Descarga",rs.getPropertyValue("--bi-desc")],["Entregue",rs.getPropertyValue("--muted")],["Sem veículo",rs.getPropertyValue("--info")]];
+    let x=PAD, y=HEAD+vb[3]+32; c.font=`500 13px ${F}`;
+    leg.forEach(([t,cor])=>{ c.fillStyle=(cor||"#888").trim(); c.beginPath(); c.arc(x+6,y-4,6,0,Math.PI*2); c.fill(); c.fillStyle="#3A4A57"; c.fillText(t,x+18,y); x+=18+c.measureText(t).width+22; });
+    return {cv, d};
+  } finally { if(url) URL.revokeObjectURL(url); box.remove(); if(tema) root.dataset.theme=tema; else delete root.dataset.theme; }
+}
 function painelResumo(){
-  let modo="tabela", comDesvio=true, cv=null;
-  try{ modo=localStorage.getItem("iveco.resumoModo")||"tabela"; comDesvio=localStorage.getItem("iveco.resumoDesvio")!=="0"; }catch(e){}
+  const hj=iso(new Date()).slice(0,10);
+  const dias=[...new Set(biLinhas().map(r=>dia(r.need)).filter(Boolean))].sort().reverse();
+  const temFiltro=A(state.bi.dia).length>0;
+  let sel=temFiltro?"bi":"__hoje__", cv=null, d=null;
   openPanel(`<h3>Resumo para o cliente</h3>
-    <p>Imagem pronta para o grupo de WhatsApp e tabela formatada para o corpo do e-mail, com os dados atuais${state.dia?` (necessidade de ${diaBR(state.dia)})`:""}.</p>
+    <p>Imagem do mapa <b>Posição dos veículos</b> para enviar no WhatsApp, conforme a data escolhida.</p>
+    <div class="row"><label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted);min-width:260px">Data (expectativa na planta)
+      <select id="r-dia">
+        ${temFiltro?`<option value="bi">Mesmo filtro do Painel BI (${esc(biFiltrosTxt())})</option>`:""}
+        <option value="__hoje__">Hoje (${diaBR(hj)})</option>
+        ${dias.filter(x=>x!==hj).map(x=>`<option value="${x}">${diaBR(x)}</option>`).join("")}
+        <option value="todas">Todas as datas</option>
+      </select></label></div>
+    <div class="prev"><img id="r-img" alt="Prévia do mapa para o cliente"></div>
     <div class="row">
-      <div class="seg" role="group" aria-label="Formato"><button type="button" data-m="tabela">Tabela</button><button type="button" data-m="cards">Cards</button></div>
-      <label class="chk"><input type="checkbox" id="r-desvio"> Mostrar previsão × necessidade</label>
-    </div>
-    <div class="prev"><img id="r-img" alt="Prévia do resumo para o cliente"></div>
-    <div class="row">
-      <button class="btn primary" id="r-png" type="button">Baixar imagem (PNG)</button>
+      <button class="btn primary" id="r-wa" type="button">Enviar no WhatsApp</button>
       <button class="btn" id="r-cimg" type="button">Copiar imagem</button>
-      <button class="btn" id="r-mail" type="button">Copiar tabela p/ e-mail</button>
-      <button class="btn ghost" id="r-txt" type="button">Copiar texto</button>
+      <button class="btn" id="r-png" type="button">Baixar imagem</button>
       <button class="btn ghost" id="r-x" type="button" style="margin-left:auto">Fechar</button>
     </div>
     <div id="r-msg"></div>`, async el=>{
     el.classList.add("wide");
     const msg=(t,ok)=>el.querySelector("#r-msg").innerHTML=`<div class="msg ${ok?"ok":"err"}">${esc(t)}</div>`;
-    const img=el.querySelector("#r-img"), chk=el.querySelector("#r-desvio"); chk.checked=comDesvio;
-    const segs=el.querySelectorAll(".seg button");
-    const redraw=async()=>{ segs.forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.m===modo))); cv=await desenhaResumo(modo,comDesvio); img.src=cv.toDataURL("image/png");
-      try{ localStorage.setItem("iveco.resumoModo",modo); localStorage.setItem("iveco.resumoDesvio",comDesvio?"1":"0"); }catch(e){} };
-    segs.forEach(b=>b.onclick=()=>{ modo=b.dataset.m; redraw(); });
-    chk.onchange=()=>{ comDesvio=chk.checked; redraw(); };
-    el.querySelector("#r-x").onclick=closePanel;
+    const img=el.querySelector("#r-img"), sd=el.querySelector("#r-dia"); sd.value=sel;
     const blob=()=>new Promise(res=>cv.toBlob(res,"image/png"));
-    const nome=()=>{ const d=new Date(); return `Iveco_posicao_${pad(d.getDate())}${pad(d.getMonth()+1)}_${pad(d.getHours())}${pad(d.getMinutes())}_${modo}.png`; };
-    el.querySelector("#r-png").onclick=async()=>{ const dl=await window.APP_SERVICOS?.use?.("downloads"); if(!dl){ msg("Download indisponível nesta visualização. Use Copiar imagem.",false); return; }
-      try{ await dl.save({filename:nome(), data:await blob()}); msg("Imagem salva. Anexe no grupo de WhatsApp.",true); }catch(e){ if(e.code!=="declined") msg("Não foi possível salvar ("+e.code+").",false); } };
-    el.querySelector("#r-cimg").onclick=()=>{ try{ navigator.clipboard.write([new ClipboardItem({"image/png":blob()})]).then(()=>msg("Imagem copiada. Cole direto na conversa do WhatsApp Web ou no e-mail.",true),()=>msg("Este navegador não permite copiar imagem aqui. Use Baixar imagem.",false)); }catch(e){ msg("Este navegador não permite copiar imagem aqui. Use Baixar imagem.",false); } };
-    el.querySelector("#r-mail").onclick=()=>{ const h=htmlResumo(comDesvio), t=textoResumo();
-      try{ navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([h],{type:"text/html"}),"text/plain":new Blob([t],{type:"text/plain"})})]).then(()=>msg("Tabela copiada. Cole no corpo do e-mail (Ctrl+V).",true),()=>msg("Não foi possível copiar a tabela neste navegador. Use Copiar imagem ou Baixar imagem.",false)); }
-      catch(e){ msg("Não foi possível copiar a tabela neste navegador. Use Copiar imagem ou Baixar imagem.",false); } };
-    el.querySelector("#r-txt").onclick=()=>{ navigator.clipboard.writeText(textoResumo()).then(()=>msg("Texto copiado.",true),()=>msg("Não foi possível copiar o texto.",false)); };
+    const nome=()=>{ const n=new Date(); return `Iveco_mapa_${pad(n.getDate())}${pad(n.getMonth()+1)}_${pad(n.getHours())}${pad(n.getMinutes())}.png`; };
+    const legenda=()=>`*Posição dos veículos – Iveco*\n${d.filtro} · atualizado ${fmt(iso(d.now))}`;
+    const redraw=async()=>{ el.querySelector("#r-msg").innerHTML=""; img.style.opacity=".4";
+      try{ const r=await resumoMapaImagem(sel); cv=r.cv; d=r.d; img.src=cv.toDataURL("image/png"); }catch(e){ msg("Não foi possível gerar a imagem do mapa.",false); } img.style.opacity="1"; };
+    sd.onchange=()=>{ sel=sd.value; redraw(); };
+    el.querySelector("#r-x").onclick=closePanel;
+    const copiar=async()=>{ try{ await navigator.clipboard.write([new ClipboardItem({"image/png":blob()})]); return true; }catch(e){ return false; } };
+    el.querySelector("#r-wa").onclick=async()=>{ if(!cv) return;
+      try{ const f=new File([await blob()],nome(),{type:"image/png"});
+        if(navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f], text:legenda()}); return; } }catch(e){ if(e&&e.name==="AbortError") return; }
+      const ok=await copiar(); window.open("https://web.whatsapp.com/","whatsapp");
+      msg(ok?"Imagem copiada. No WhatsApp, abra a conversa do cliente e cole com Ctrl+V.":"Não foi possível copiar a imagem neste navegador. Use Baixar imagem e anexe no WhatsApp.",ok); };
+    el.querySelector("#r-cimg").onclick=async()=>{ if(!cv) return; const ok=await copiar(); msg(ok?"Imagem copiada. Cole direto na conversa do WhatsApp (Ctrl+V).":"Este navegador não permite copiar imagem aqui. Use Baixar imagem.",ok); };
+    el.querySelector("#r-png").onclick=async()=>{ if(!cv) return; const dl=await window.APP_SERVICOS?.use?.("downloads"); if(!dl){ msg("Download indisponível. Use Copiar imagem.",false); return; }
+      try{ await dl.save({filename:nome(), data:await blob()}); msg("Imagem salva. Anexe no grupo de WhatsApp.",true); }catch(e){ if(e.code!=="declined") msg("Não foi possível salvar a imagem.",false); } };
     await redraw();
   });
 }
