@@ -1983,8 +1983,8 @@ function biFiltra(rows, ignora){
 function truckSym(){ return `<symbol id="bi-wrench" viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></symbol><symbol id="bi-truck" viewBox="0 0 34 22"><path d="M1.5 3.5h19v11h-19z" rx="2"/><path d="M21.5 6.5h6l4.5 4.6v3.4h-10.5z"/><path d="M23.3 7.8h3.6l2.8 2.9h-6.4z" fill="#ffffffcc"/><circle cx="7.5" cy="17" r="2.9" fill="#1c2a33" stroke="#fff" stroke-width="1.2"/><circle cx="26" cy="17" r="2.9" fill="#1c2a33" stroke="#fff" stroke-width="1.2"/></symbol>`; }
 function truckIcon(tone,size){ const c=tone==="desc"?"var(--bi-desc)":tone==="done"?"var(--muted)":BI_TONE_COR[tone]||"var(--info)"; return `<svg class="bi-tk" width="${size||26}" height="${Math.round((size||26)*22/34)}" viewBox="0 0 34 22" aria-hidden="true"><use href="#bi-truck" fill="${c}" stroke="#fff" stroke-width="1.1"/></svg>`; }
 const LON0=-44.45, LON1=-42.95, LAT0=-19.3, LAT1=-23.0;
-function biMapa(rows, now){
-  const W=840, H=800, PX=120, PY=30, K=Math.cos(21*Math.PI/180), CALL_X=430; let HF=H;
+function biMapa(rows, now, vert){
+  const W=vert?480:840, H=vert?760:800, PX=120, PY=30, K=Math.cos(21*Math.PI/180), CALL_X=430; let HF=H;
   const s=(H-PY*2)/(LAT0-LAT1);
   const X=lon=>PX+(lon-LON0)*K*s, Y=lat=>PY+(LAT0-lat)*s;
   const P=id=>[X(NO[id].ll[1]),Y(NO[id].ll[0])];
@@ -2038,15 +2038,18 @@ function biMapa(rows, now){
   Object.entries(agNo).forEach(([id,rs])=>{ const [x,y]=P(id); rs.sort((a,b)=>(RK[a.tone]??5)-(RK[b.tone]??5)||String(a.need).localeCompare(String(b.need)));
     const sada=rs.some(r=>/SADA/i.test(r.f.localizacao||"")); grupos.push({id,x,y:y+0.5,sv:true,ag:true,nome:(sada?"Sada ":"")+NO[id].n+" · aguardando veículo",lista:rs.map(r=>({placa:"",rs:[r],tone:r.tone,crit:!!r.crit,gap:r.gap,gt:r.tone,sv:true})),h:24+rs.length*35}); });
   grupos.sort((a,b)=>a.y-b.y);
-  const CX=CALL_X, CW=W-CALL_X-10; let fundo=PY-10;
-  grupos.forEach(gr=>{ gr.by=Math.max(gr.y-gr.h/2, fundo+8); fundo=gr.by+gr.h; });
+  const CX=vert?12:CALL_X, CW=vert?W-24:W-CALL_X-10; let fundo=vert?H-4:PY-10;
+  grupos.forEach(gr=>{ gr.by=vert?fundo+12:Math.max(gr.y-gr.h/2, fundo+8); fundo=gr.by+gr.h; });
+  const nBadge={};
   HF=Math.max(H, fundo+PY);
-  grupos.forEach(gr=>{ const t=gr.lista[0].tone, cor=gr.sv?"var(--info)":t==="desc"?"var(--bi-desc)":t==="done"?"var(--muted)":BI_TONE_COR[t];
+  grupos.forEach((gr,gi)=>{ const t=gr.lista[0].tone, cor=gr.sv?"var(--info)":t==="desc"?"var(--bi-desc)":t==="done"?"var(--muted)":BI_TONE_COR[t];
     const ay=Math.min(Math.max(gr.y, gr.by+10), gr.by+gr.h-10);
-    g+=`<path d="M${gr.x+5} ${gr.y} C ${gr.x+40} ${gr.y}, ${CX-40} ${ay}, ${CX} ${ay}" fill="none" stroke="${cor}" stroke-width="1.4" opacity=".75"/><circle cx="${gr.x}" cy="${gr.y}" r="7" fill="none" stroke="${cor}" stroke-width="2"/>`;
+    if(vert){ const kb=gr.id, k=nBadge[kb]=(nBadge[kb]||0)+1, bx=gr.x+16+(k-1)*23, by=gr.y-15;
+      g+=`<circle cx="${gr.x}" cy="${gr.y}" r="8" fill="none" stroke="${cor}" stroke-width="2.2"/><circle cx="${bx}" cy="${by}" r="10" fill="${cor}" stroke="#fff" stroke-width="1.6"/><text x="${bx}" y="${by+4}" text-anchor="middle" style="font:700 11px var(--f-ui);fill:#fff">${gi+1}</text>`; }
+    else g+=`<path d="M${gr.x+5} ${gr.y} C ${gr.x+40} ${gr.y}, ${CX-40} ${ay}, ${CX} ${ay}" fill="none" stroke="${cor}" stroke-width="1.4" opacity=".75"/><circle cx="${gr.x}" cy="${gr.y}" r="7" fill="none" stroke="${cor}" stroke-width="2"/>`;
     g+=`<rect x="${CX}" y="${gr.by}" width="${CW}" height="${gr.h}" rx="7" fill="var(--surface)" stroke="${cor}" stroke-width="1.4" filter="url(#bi-sh)"/>
        <rect x="${CX}" y="${gr.by}" width="5" height="${gr.h}" rx="2" fill="${cor}"/>
-       <text x="${CX+14}" y="${gr.by+16}" class="bi-gh">${gr.ag?esc(gr.nome):gr.sv?"Sem veículo alocado":esc(NO[gr.id].n)}</text><text x="${CX+CW-10}" y="${gr.by+16}" text-anchor="end" class="bi-gc">${(()=>{ if(gr.sv) return gr.lista.length+" container"+(gr.lista.length>1?"s":""); const nv=gr.lista.filter(v=>v.rs[0].f&&v.rs[0].f.placa_cavalo).length, ns=gr.lista.length-nv; return [nv?nv+" veículo"+(nv>1?"s":""):"", ns?ns+" sem placa":""].filter(Boolean).join(" · "); })()}</text>`;
+       <text x="${CX+14}" y="${gr.by+16}" class="bi-gh">${vert?(gi+1)+" · ":""}${gr.ag?esc(gr.nome):gr.sv?"Sem veículo alocado":esc(NO[gr.id].n)}</text><text x="${CX+CW-10}" y="${gr.by+16}" text-anchor="end" class="bi-gc">${(()=>{ if(gr.sv) return gr.lista.length+" container"+(gr.lista.length>1?"s":""); const nv=gr.lista.filter(v=>v.rs[0].f&&v.rs[0].f.placa_cavalo).length, ns=gr.lista.length-nv; return [nv?nv+" veículo"+(nv>1?"s":""):"", ns?ns+" sem placa":""].filter(Boolean).join(" · "); })()}</text>`;
     if(gr.sv){ gr.lista.forEach((v,i)=>{ const ry=gr.by+22+i*35, r=v.rs[0], c=BI_TONE_COR[v.tone]||"var(--info)";
         g+=`<g class="bi-veh bi-sv" data-cnsv="${esc(r.cn)}" tabindex="0" role="button" aria-label="Container ${esc(r.cn)} sem veículo alocado"><title>${esc(r.cn)} · sem veículo alocado · clique para alocar</title>
           <rect x="${CX+7}" y="${ry-1}" width="${CW-12}" height="33" rx="4" fill="transparent"/>
@@ -2786,7 +2789,7 @@ function resumoMapaDados(sel){
     const veics=new Set(mapa.filter(r=>r.f&&r.node&&r.carga!=="entregue").map(r=>r.placa)).size;
     const semV=mapa.filter(r=>r.carga==="semveic").length;
     const filtro = sel==="bi" ? (biFiltrosTxt()||"Todas as datas") : sel==="todas" ? "Todas as datas" : "Expectativa na planta "+diaBR(sel==="__hoje__"?hj:sel);
-    return {now, svg:biMapa(mapa,now), veics, semV, n:mapa.length, filtro};
+    return {now, svg:biMapa(mapa,now,true), veics, semV, n:mapa.length, filtro};
   } finally { b.dia=guarda; }
 }
 async function resumoMapaImagem(sel){
@@ -2806,19 +2809,20 @@ async function resumoMapaImagem(sel){
     let txt=new XMLSerializer().serializeToString(cl).replace(/var\((--[\w-]+)\)/g,(m,v)=>rs.getPropertyValue(v).trim()||"#888");
     url=URL.createObjectURL(new Blob([txt],{type:"image/svg+xml"}));
     const img=new Image(); await new Promise((ok,er)=>{ img.onload=ok; img.onerror=er; img.src=url; });
-    const S=2, PAD=28, HEAD=92, LEG=56, W=vb[2]+PAD*2, H=HEAD+vb[3]+LEG+PAD;
-    const cv=document.createElement("canvas"); cv.width=W*S; cv.height=H*S; const c=cv.getContext("2d"); c.scale(S,S);
+    const PAD=20, HEAD=112, LEG=70, W=vb[2]+PAD*2, H=HEAD+vb[3]+LEG, S=1080/W;
+    const cv=document.createElement("canvas"); cv.width=Math.round(W*S); cv.height=Math.round(H*S); const c=cv.getContext("2d"); c.scale(S,S);
     const F="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif";
     c.fillStyle="#FFFFFF"; c.fillRect(0,0,W,H);
     c.fillStyle="#0F1B24"; c.fillRect(0,0,W,6);
-    c.fillStyle="#13202A"; c.font=`700 24px ${F}`; c.fillText("Posição dos veículos · Iveco",PAD,46);
-    c.fillStyle="#5A6A77"; c.font=`500 14px ${F}`;
-    c.fillText(`${d.filtro} · ${d.veics} veículo${d.veics===1?"":"s"}${d.semV?` · ${d.semV} sem veículo alocado`:""} · atualizado ${fmt(iso(d.now))}`,PAD,72);
-    c.save(); c.beginPath(); c.roundRect?c.roundRect(PAD,HEAD,vb[2],vb[3],10):c.rect(PAD,HEAD,vb[2],vb[3]); c.clip(); c.drawImage(img,PAD,HEAD,vb[2],vb[3]); c.restore();
-    c.strokeStyle="#D6DEE4"; c.lineWidth=1; c.beginPath(); c.roundRect?c.roundRect(PAD+.5,HEAD+.5,vb[2]-1,vb[3]-1,10):c.rect(PAD,HEAD,vb[2],vb[3]); c.stroke();
-    const leg=[["Atrasado",rs.getPropertyValue("--crit")],["Em risco",rs.getPropertyValue("--warn")],["No prazo",rs.getPropertyValue("--ok")],["Descarga",rs.getPropertyValue("--bi-desc")],["Entregue",rs.getPropertyValue("--muted")],["Sem veículo",rs.getPropertyValue("--info")]];
-    let x=PAD, y=HEAD+vb[3]+32; c.font=`500 13px ${F}`;
-    leg.forEach(([t,cor])=>{ c.fillStyle=(cor||"#888").trim(); c.beginPath(); c.arc(x+6,y-4,6,0,Math.PI*2); c.fill(); c.fillStyle="#3A4A57"; c.fillText(t,x+18,y); x+=18+c.measureText(t).width+22; });
+    c.fillStyle="#13202A"; c.font=`700 23px ${F}`; c.fillText("Posição dos veículos · Iveco",PAD,44);
+    c.fillStyle="#0B6A84"; c.font=`700 14px ${F}`; c.fillText(d.filtro,PAD,70);
+    c.fillStyle="#5A6A77"; c.font=`500 13px ${F}`;
+    c.fillText(`${d.veics} veículo${d.veics===1?"":"s"}${d.semV?` · ${d.semV} sem veículo alocado`:""} · atualizado ${fmt(iso(d.now))}`,PAD,92);
+    c.save(); c.beginPath(); c.roundRect?c.roundRect(PAD,HEAD,vb[2],vb[3],12):c.rect(PAD,HEAD,vb[2],vb[3]); c.clip(); c.drawImage(img,PAD,HEAD,vb[2],vb[3]); c.restore();
+    const leg=[["Atrasado","--crit"],["Em risco","--warn"],["No prazo","--ok"],["Descarga","--bi-desc"],["Entregue","--muted"],["Sem veículo","--info"]];
+    let x=PAD, y=HEAD+vb[3]+30; c.font=`500 13px ${F}`;
+    leg.forEach(([t,v])=>{ const w=18+c.measureText(t).width+18; if(x+w>W-PAD){ x=PAD; y+=24; }
+      c.fillStyle=(rs.getPropertyValue(v)||"#888").trim(); c.beginPath(); c.arc(x+6,y-4,6,0,Math.PI*2); c.fill(); c.fillStyle="#3A4A57"; c.fillText(t,x+17,y); x+=w; });
     return {cv, d};
   } finally { if(url) URL.revokeObjectURL(url); box.remove(); if(tema) root.dataset.theme=tema; else delete root.dataset.theme; }
 }
