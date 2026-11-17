@@ -1,61 +1,56 @@
-CONTROLE PROCESSOS IVECO — PACOTE PARA PÁGINA WEB E APLICATIVO DE CELULAR
-=========================================================================
+TORRE IVECO · CONTROLE PROCESSOS IVECO
+======================================
+Torre de controle dos processos de containers (portos RJ/Santos → Iveco Sete Lagoas e Sada Betim):
+Tabela de controle, Follow para o cliente, Painel BI, Painel 3D, Críticos, Necessidade × Follow,
+Linha do tempo, Rodovias e Indicadores. Funciona no navegador e pode ser instalado como aplicativo
+no computador ou no celular.
 
-ARQUIVOS DO PACOTE (envie TODOS para o GitHub — são 12 arquivos, sem pastas)
-  index.html              → o controle completo (Painel BI, Críticos, Necessidade × Follow,
-                            Linha do tempo, Rodovias, Indicadores, Painel 3D etc.)
-  manifest.webmanifest    → nome e ícone (faz aparecer "Instalar app")
-  sw.js                   → deixa o controle abrir sem internet
-  icon-192.png, icon-512.png, icon-maskable-512.png, apple-touch-icon.png → ícones
-  three.min.js, OrbitControls.js, xlsx.full.min.js, jspdf.umd.min.js
-                          → bibliotecas do 3D, do Excel e do PDF (sem elas a página não abre)
+ESTRUTURA (todos os arquivos ficam na mesma pasta, sem subpastas)
+  index.html             estrutura da página (visual de aplicativo: menu lateral, barra superior,
+                         barra inferior no celular)
+  estilos.css            aparência das tabelas, painéis e mapas
+  app-shell.css          aparência do aplicativo (menu, cartões, tema claro/escuro, celular)
+  shell.js               comportamento do menu, título das telas, tema e menu "mais opções"
+  app.js                 lógica do controle (importação, cálculos, painéis, mapas, 3D, resumos)
+  servicos.js            banco de dados (Supabase na nuvem ou armazenamento local) e downloads
+  instalacao.js          instalação como aplicativo e backup
+  config.js              endereço do banco na nuvem (deixe em branco para modo local)
+  sw.js                  funcionamento offline
+  manifest.webmanifest, icon-*.png, apple-touch-icon.png   ícones do aplicativo
+  CONFIGURAR-NUVEM.sql   estrutura do banco (Supabase)
+  Bibliotecas de terceiros (não editar): three.min.js e OrbitControls.js (MIT),
+  xlsx.full.min.js (Apache-2.0), jspdf.umd.min.js (MIT), supabase.js (MIT).
 
-PASSO A PASSO — GITHUB PAGES (grátis)
- 1. Entre em github.com com a sua conta.
- 2. "+" (canto superior direito) → "New repository".
-    Repository name: controle-iveco  ·  marque "Public"  ·  "Create repository".
- 3. Clique em "uploading an existing file".
- 4. Descompacte o .zip. Abra a pasta controle-iveco e ARRASTE para a área de upload
-    TODOS os 12 arquivos de uma vez.
- 5. "Commit changes".
- 6. "Settings" → "Pages" → Branch: "main", pasta "/ (root)" → "Save".
- 7. Em 1 a 2 minutos aparece o endereço:
-       https://SEU-USUARIO.github.io/controle-iveco/
-    Essa é a página web. No computador, abra no Chrome ou Edge.
+MODOS DE USO
+  1) Modo local (sem nuvem) — config.js com url e chave vazias.
+     Os dados ficam no navegador de cada computador. Use o botão Backup para levar os dados
+     de um computador para outro. Não depende de nenhum serviço externo.
+  2) Modo nuvem (equipe compartilhando a mesma base, em tempo real) — Supabase.
+     a. Crie um projeto em supabase.com (de preferência com a conta da empresa).
+     b. SQL Editor → cole o conteúdo de CONFIGURAR-NUVEM.sql → Run.
+        Troque o e-mail no final do arquivo pelo(s) e-mail(s) de quem pode editar.
+     c. Authentication → Users → Add user: cadastre quem vai acessar (e-mail e senha).
+     d. Connect (ou Settings → API): copie a URL do projeto e a chave "publishable/anon"
+        e preencha o config.js. Nunca use a chave "service_role/secret".
 
-INSTALAR COMO APLICATIVO
-  Computador (Chrome/Edge): ícone de instalar na barra de endereço, ou a faixa
-                            "Instalar app" no topo da página.
-  Android (Chrome): faixa "Instalar app" (ou menu ⋮ → "Instalar aplicativo").
-  iPhone (Safari):  Compartilhar → "Adicionar à Tela de Início".
+PUBLICAÇÃO
+  Qualquer servidor de páginas estáticas serve (servidor interno da empresa, Azure Static Web
+  Apps, IIS, GitHub Pages da organização etc.): basta copiar todos os arquivos para a mesma pasta.
+  Para testar no próprio computador, abra a pasta com um servidor local
+  (ex.: no VS Code, extensão "Live Server"); abrir o index.html direto do disco não ativa o modo offline.
 
-O QUE MUDA EM RELAÇÃO À VERSÃO DO CLAUDE — LEIA COM ATENÇÃO
-  1. DADOS FICAM NO APARELHO. Na versão do Claude, todos que abrem o link veem a
-     mesma base. Aqui, cada computador/celular tem a sua base. O que você importar
-     no computador NÃO aparece no celular sozinho.
-     → Para levar os dados de um aparelho para outro use o botão "Backup":
-       "Salvar backup (.json)" em um e "Restaurar backup" no outro.
-     → Para compartilhar a mesma base em tempo real entre várias pessoas é preciso
-       um banco de dados na nuvem (ex.: Firebase ou Supabase, que têm plano grátis).
-       Esse seria o próximo passo, se você quiser.
-  2. A BASE COMEÇA VAZIA. Importe a programação e o follow pelo botão
-     "Importar e-mail / planilha", como já faz hoje.
-  3. LEITURA DE IMAGEM (Consulta rápida com print) só funciona na versão do Claude.
-     Aqui, cole o texto com os números dos containers.
-  4. Exportar Excel, PDF e as imagens do resumo salvam direto no aparelho
-     (no iPhone abre a tela para salvar em Arquivos ou enviar).
-  5. O clima em tempo real funciona com internet (serviço Open-Meteo). Sem internet,
-     use "✎ Ajustar" na barra de clima.
-  6. Se limpar os dados do navegador ou desinstalar o app, a base daquele aparelho
-     se perde. Faça backup com frequência.
+ATUALIZAÇÕES
+  Ao alterar qualquer arquivo, aumente a versão em sw.js (controle-iveco-v35 → v36 ...).
 
-PARA ATUALIZAR O CONTROLE DEPOIS
-  1. No repositório: "Add file" → "Upload files" e envie o index.html novo por cima.
-  2. Abra o sw.js (ícone de lápis) e troque  controle-iveco-v2  por  controle-iveco-v3
-     (v4, v5... a cada atualização). Os aparelhos pegam a versão nova na próxima
-     vez que abrirem com internet. Os dados salvos NÃO são apagados na atualização.
+SERVIÇOS EXTERNOS USADOS
+  Supabase (somente no modo nuvem) · Open-Meteo (clima em tempo real, opcional)
+  · links para WhatsApp, Waze e Google Maps (só quando o usuário clica).
 
-ATENÇÃO À PRIVACIDADE
-  Repositório "Public" significa que qualquer pessoa com o link abre a página.
-  Os DADOS não vão para o GitHub (ficam só nos aparelhos), mas o controle em si
-  fica visível. Não envie planilhas, backups ou prints com dados para o repositório.
+PRIVACIDADE
+  Não publique planilhas, backups ou prints com dados junto com os arquivos do aplicativo.
+
+USO NO DIA A DIA
+  Computador: menu lateral à esquerda (botão no rodapé recolhe o menu só para ícones; o botão
+  da lua/sol alterna tema claro/escuro). Botão "⋯" no topo: Exportar Excel, Backup, ocultar o
+  resumo do dia e instalar como aplicativo.
+  Celular: barra inferior com Tabela, Follow, BI, 3D e Menu (abre todas as telas).
