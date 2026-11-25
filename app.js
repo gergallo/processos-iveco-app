@@ -1136,6 +1136,8 @@ function analisa(p, f, now){
   r.rank = {crit:0,warn:1,info:2,ok:3}[r.tone];
   return r;
 }
+// Nível de criticidade: só vale texto (ex.: ITEM PARA LINHA, CRÍTICO). Números/horários lançados por engano na coluna são descartados.
+function critLimpa(v){ const s=(v==null?"":String(v)).replace(/\u00a0/g," ").trim().toUpperCase(); if(!s||s==="(VAZIO)"||/^[\d\s.,:\/+-]+$/.test(s)) return ""; return s; }
 const isLinha = p => /LINHA/i.test(p.criticidade||"");
 const isCrit = p => !!(p && String(p.criticidade||"").trim());
 
@@ -2356,7 +2358,7 @@ function buildProg(c,o,now){
   const ld=o.local_descarga;
   return { container:c, data_carregamento:pIso(o.data_carregamento), planta:txt(o.planta), solicitante:txt(o.solicitante), carga:txt(o.carga), desova:txt(o.desova).toUpperCase(),
     navio:txt(o.navio), necessidade, or:txt(o.or), shipment:txt(o.shipment), tipo_veiculo:txt(o.tipo_veiculo), obs:txt(o.obs), transportadora:txt(o.transportadora),
-    local_descarga: ld==null?"":txt(ld), limite_devolucao:pIso(o.limite_devolucao), criticidade:txt(o.criticidade).toUpperCase(), atualizadoEm:now };
+    local_descarga: ld==null?"":txt(ld), limite_devolucao:pIso(o.limite_devolucao), criticidade:critLimpa(o.criticidade), atualizadoEm:now };
 }
 function histEntry(f,t,orig){ return {t:t||f.atualizadoEm, orig:orig||"planilha", status:f.status||"", loc:f.localizacao||"", prev:f.prev_chegada||null, cheg:f.chegada||null}; }
 function withHist(novo, antigo, t, orig){
@@ -2376,7 +2378,10 @@ async function gravar(parsed){
     const novos=r.ids.filter(c=>!vistos.has(c)); if(!novos.length){ ignoradas++; continue; }
     novos.forEach(c=>vistos.add(c)); recentes.push({ids:novos,o:r.o}); }
   for(const r of recentes){ for(const f of buildFollow(r.ids,r.o,now)){ await state.db.doc("follow/"+f.container).set(withHist(f, state.follow[f.container])); nf++; } }
-  for(const r of parsed.prog){ const p=buildProg(r.container,r.o,now); await state.db.doc("prog/"+p.container).set(p); np++; }
+  // Programação: mesma regra do follow — vale a última linha lançada (a mais abaixo) de cada container.
+  const progVistos=new Set(), progRecentes=[];
+  for(let i=parsed.prog.length-1;i>=0;i--){ const r=parsed.prog[i]; if(progVistos.has(r.container)){ ignoradas++; continue; } progVistos.add(r.container); progRecentes.unshift(r); }
+  for(const r of progRecentes){ const p=buildProg(r.container,r.o,now); await state.db.doc("prog/"+p.container).set(p); np++; }
   if(nf){ const k=now.slice(0,10), atual=(state.envios[k]&&state.envios[k].horarios)||[];
     await state.db.doc("envios/"+k).set({dia:k, horarios:[...new Set([...atual, now])].sort()}); }
   const meta=Object.assign({}, state.meta); if(nf) meta.ultimoFollow=now; if(np) meta.ultimaProg=now;
@@ -2414,10 +2419,10 @@ function painelImport(){
     <div class="drop" id="imp-drop">Solte aqui o arquivo .xlsx ou <label style="color:var(--accent);cursor:pointer;text-decoration:underline">escolha o arquivo<input id="imp-file" type="file" accept=".xlsx,.xls,.xlsm,.csv" hidden></label></div>
     <div id="imp-msg"></div>
     <div class="row"><button class="btn primary" id="imp-go" type="button">Importar texto colado</button><button class="btn ghost" id="imp-x" type="button">Fechar</button></div>
-    <p>No follow, a leitura começa pela última linha e sobe até a primeira: para cada container vale a linha mais recente (a mais abaixo), e as repetições mais antigas são ignoradas. Containers já existentes são atualizados, e cada mudança de status, posição ou previsão fica no histórico do container.</p>`, el=>{
+    <p>A leitura começa pela última linha e sobe até a primeira (de baixo para cima), no follow e na programação: para cada container vale a última linha lançada (a mais abaixo), e as repetições acima dela são ignoradas. Containers já existentes são atualizados, e cada mudança de status, posição ou previsão fica no histórico do container.</p>`, el=>{
       const msg=(t,ok)=>{ el.querySelector("#imp-msg").innerHTML=`<div class="msg ${ok?"ok":"err"}">${esc(t)}</div>`; };
       const run=async parsed=>{ if(!parsed.follow.length && !parsed.prog.length){ msg("Não encontrei cabeçalho de follow (STATUS GERAL) nem de programação (Expectativa na Planta). Copie a tabela junto com a linha de títulos.",false); return; }
-        try{ msg("Gravando…",true); const r=await gravar(parsed); msg(`${r.cid&&r.cid.novas.length?`Cidades novas adicionadas à rota: ${r.cid.novas.map(c=>c.nome+" ("+kmAte(NO[c.id],"sete")+" km até Sete Lagoas)").join(", ")}. `:""}${r.cid&&r.cid.falhas.length?`Não reconhecidas (informe na aba Rodovias): ${r.cid.falhas.join(", ")}. `:""}Importado: ${r.nf} containers de follow (linha mais recente de cada) e ${r.np} da programação.${r.ignoradas?` ${r.ignoradas} linha${r.ignoradas>1?"s":""} mais antiga${r.ignoradas>1?"s":""} do follow ignorada${r.ignoradas>1?"s":""}.`:""}`,true); toast("Importação concluída"); }catch(e){ msg("Falha ao gravar: "+(e.message||e.code),false); } };
+        try{ msg("Gravando…",true); const r=await gravar(parsed); msg(`${r.cid&&r.cid.novas.length?`Cidades novas adicionadas à rota: ${r.cid.novas.map(c=>c.nome+" ("+kmAte(NO[c.id],"sete")+" km até Sete Lagoas)").join(", ")}. `:""}${r.cid&&r.cid.falhas.length?`Não reconhecidas (informe na aba Rodovias): ${r.cid.falhas.join(", ")}. `:""}Importado: ${r.nf} containers de follow (vale a última linha lançada de cada) e ${r.np} da programação.${r.ignoradas?` ${r.ignoradas} linha${r.ignoradas>1?"s":""} repetida${r.ignoradas>1?"s":""} acima da última lançada ignorada${r.ignoradas>1?"s":""}.`:""}`,true); toast("Importação concluída"); }catch(e){ msg("Falha ao gravar: "+(e.message||e.code),false); } };
       el.querySelector("#imp-x").onclick=closePanel;
       el.querySelector("#imp-go").onclick=()=>{ const t=el.querySelector("#imp-txt").value; if(!t.trim()){ msg("Cole a tabela do e-mail no campo acima.",false); return;} run(parseGrid(gridFromText(t))); };
       const file=async f=>{ if(!f) return; try{ const buf=await f.arrayBuffer(); if(typeof XLSX==="undefined") throw new Error("leitor de planilha não carregou"); run(gridsFromWorkbook(buf)); }catch(e){ msg("Não consegui ler o arquivo: "+e.message,false); } };
@@ -3211,7 +3216,7 @@ render();
   const db = window.APP_SERVICOS && window.APP_SERVICOS.use ? await window.APP_SERVICOS.use("db") : null;
   if(!db){ setConn(false,"Base indisponível nesta visualização"); return; }
   state.db=db; setConn(true,(window.__modoNuvem&&window.__modoNuvem().nuvem)?"Conectando à nuvem…":"Salvo neste aparelho");
-  const sub=(col,key)=>db.collection(col).onSnapshot(s=>{ const m={}; s.docs.forEach(d=>{ const x=d.data(); if(x){ if(col==="follow") limpaVazios(x); m[d.id]=x; } }); state[key]=m; render(); }, e=>setConn(false,"Conexão perdida ("+e.code+") · recarregue"));
+  const sub=(col,key)=>db.collection(col).onSnapshot(s=>{ const m={}; s.docs.forEach(d=>{ const x=d.data(); if(x){ if(col==="follow") limpaVazios(x); if(col==="prog") x.criticidade=critLimpa(x.criticidade); m[d.id]=x; } }); state[key]=m; render(); }, e=>setConn(false,"Conexão perdida ("+e.code+") · recarregue"));
   sub("prog","prog"); sub("follow","follow"); sub("envios","envios"); sub("alertas","alertas");
   let varreu=false;
   db.collection("cidades").onSnapshot(s=>{ s.docs.forEach(d=>{ const c=d.data(); if(c) registraCidade(c); }); render();
